@@ -28,19 +28,7 @@ function Asignaciones() {
 
     const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
     const [profesores, setProfesores] = useState<Profesor[]>([]);
-    
-    
-    useEffect(() => {
-        const Asignaciones = async () => {
-            try{
-                const datos = await axios.get(`${__url}/asignaciones/todas`);
-                setAsignaciones(datos.data);
-            }catch(error){
-                console.log(error);
-            }
-        };
-        Asignaciones();
-    }, []);
+    const [finished, setFinished] = useState(false);
 
     useEffect(() => {
     const datos_todos = async () => {
@@ -51,12 +39,28 @@ function Asignaciones() {
             ]);
             setEstudiantes(estRes.data);
             setProfesores(proRes.data);
+            
+            
         } catch (error) {
             console.log(error);
         }
     };
     datos_todos();
 }, []);
+
+    useEffect(() => {
+        const Asignaciones = async () => { 
+            try{
+                const datos = await axios.get(`${__url}/asignaciones/todas`);
+                setAsignaciones(datos.data);
+                
+                setFinished(false);
+            }catch(error){
+                console.log(error);
+            }
+        };
+        Asignaciones();
+    }, [finished, estudiantes, profesores]);
     useEffect(() => {
     if (!newAssignment.mailEstudiante) return;
 
@@ -68,11 +72,9 @@ function Asignaciones() {
 
     setNewAssignment(prev => ({
         ...prev,
-        rut: estudiante.rut,
-        mailEstudiante: estudiante.nombre,
+        id: estudiante.rut
     }));
-    console.log(newAssignment);
-    }, [newAssignment.mailEstudiante, estudiantes]);
+    }, [newAssignment.mailEstudiante]);
 
     // --- DataGrid for "Visualizar asignaciones" ---
     interface filas {
@@ -85,16 +87,17 @@ function Asignaciones() {
 
     
     const encuentraEstudiante = (asignacion: Asignacion)=>{
-        const estudiante = estudiantes.find(est => est.mail = asignacion.mailEstudiante);
+        const estudiante = estudiantes.find(est => est.mail === asignacion.mailEstudiante);
+        console.log(asignacion, "++", estudiante)
         return estudiante?.nombre;
     }
     const encuentraProfe = (asignacion: Asignacion)=>{
-        const profe = profesores.find(pro => pro.mail = asignacion.mailProfesor);
+        const profe = profesores.find(pro => pro.mail === asignacion.mailProfesor);
         return profe?.nombre;
     }
     const filas = useMemo(() => {
         if (!asignaciones.length) return [];
-
+        
         return asignaciones.map(asig => ({
             rut: asig.id,
             studentName: encuentraEstudiante(asig) ?? '-',
@@ -103,7 +106,6 @@ function Asignaciones() {
             status: "pendiente"
         }));
         }, [asignaciones, estudiantes, profesores]);
-
     const assignmentColumns: GridColDef<filas>[] = [
         { field: 'rut', headerName: 'Rut', width: 70 },
         { field: 'studentName', headerName: 'Estudiante', width: 200 },
@@ -111,12 +113,7 @@ function Asignaciones() {
         { field: 'rol', headerName: 'Rol', width: 250 }, // DataGrid column for 'rol'
         { field: 'status', headerName: 'Estado', width: 130 },
     ];
-    /*const assignmentRows: AssignmentRow[] = [
-        { id: 1, studentName: 'Juan Pérez', professorName: 'Dr. García', rol: 'guía', status: 'Pendiente' },
-        { id: 2, studentName: 'María López', professorName: 'Dra. Soto', rol: 'informante', status: 'En Proceso' },
-        { id: 3, studentName: 'Carlos Díaz', professorName: 'Dr. Medina', rol: 'secretario', status: 'Pendiente' },
-        { id: 4, studentName: 'Ana Ruiz', professorName: 'Dra. Castro', rol: 'presidente', status: 'Completado' },
-    ];*/
+    
 
     // --- State for "Generar asignación" form ---
     interface NewAssignmentState {
@@ -125,58 +122,23 @@ function Asignaciones() {
         mailProfesor: string;
         rol: string; // 'rol' is now a direct field in the state
     }
-
     
-    //estudiantes del back
 
-
-    // Dummy data for select dropdowns (replace with actual data from your backend)
-    const students = [
-        { id: 'est1', name: 'Juan Pérez' },
-        { id: 'est2', name: 'María López' },
-        { id: 'est3', name: 'Carlos Díaz' },
-        { id: 'est4', name: 'Ana Ruiz' },
-    ];
-
-    const professors = [
-        { id: 'prof1', name: 'Dr. García' },
-        { id: 'prof2', name: 'Dra. Soto' },
-        { id: 'prof3', name: 'Dr. Medina' },
-        { id: 'prof4', name: 'Dra. Castro' },
-    ];
-
-    // Generic handler for all form fields (TextFields and Selects)
-    const handleFormChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | { name?: string; value: unknown }>) => {
-        const { name, value } = event.target;
-        setNewAssignment(prev => ({ ...prev, [name as string]: value }));
-    };
-    // Para TextField
-const handleTextChange = (
-  event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-) => {
-  const { name, value } = event.target;
-  setNewAssignment(prev => ({
-    ...prev,
-    [name]: value,
-  }));
-};
 
 // Para Select (MUI)
-const handleSelectChange = (event: SelectChangeEvent) => {
+    const handleSelectChange = (event: SelectChangeEvent) => {
+        
+    const { name, value } = event.target;
+    setNewAssignment(prev => ({
+        ...prev,
+        [name as string]: value,
+    }));
     
-  const { name, value } = event.target;
-  setNewAssignment(prev => ({
-    ...prev,
-    [name as string]: value,
-  }));
-  
-};
-
-    const handleSaludar = () => {
-        Swal.fire('hola');
     };
 
+
     const handleSubmitAssignment = async () => {
+        let response: any;
         // Validate required fields
         if (!newAssignment.mailEstudiante || !newAssignment.mailProfesor || !newAssignment.rol) {
             alert('Por favor, completa todos los campos requeridos para la asignación (Estudiante, Profesor, Rol).');
@@ -185,23 +147,25 @@ const handleSelectChange = (event: SelectChangeEvent) => {
         
         console.log('Generando nueva asignación:', newAssignment);
         try {
-            const response = await axios.post(
+            response = await axios.post(
                 `${__url}/asignaciones/crear`,
                 newAssignment
             );
+            alert('Asignación generada exitosamente (simulado)!');
+            // Reset form after successful (simulated) submission
+            setNewAssignment({
+                id: '',
+                mailEstudiante: '',
+                mailProfesor: '',
+                rol: ''
+            });
+            setFinished(true);
         } catch (error: any) {
-        console.log('Error completo:', error.response?.data);
+            console.log('Error completo:', error.response?.data);
         }
-        alert('Asignación generada exitosamente (simulado)!');
-        // Reset form after successful (simulated) submission
-        setNewAssignment({
-            id: '',
-            mailEstudiante: '',
-            mailProfesor: '',
-            rol: ''
-        });
     };
-
+    
+    
     return (
         <Box sx={{ p: 3, width: '100%', height: '100%'}}>
             <Box sx={{ display:'flex', width: '100%', maxWidth: 500, borderTopLeftRadius:1 }}>

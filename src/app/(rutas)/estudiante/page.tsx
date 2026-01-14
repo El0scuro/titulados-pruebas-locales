@@ -9,12 +9,14 @@ import { Box, Dialog, DialogActions,
 import estilo from "./style.module.css";
 import { useSearchParams } from "next/navigation";
 import __url from "../../../lib/const";
-import Cargando from "@/app/components/loading/page";
 import { useUser } from '@auth0/nextjs-auth0';
 
 function Page() {
   const searchParams = useSearchParams();
   const mail = searchParams.get("mail");
+  if(!mail){
+    return;
+  }
   console.log(mail)
   
   const {user,isLoading} = useUser();
@@ -36,21 +38,26 @@ function Page() {
       showConfirmButton: false,
     });
   };
-  const handleFileUpload = async (e:any) => {
-    const file = e.target.files[0];
-    if (!file) {
+  const handleFileUpload = async (e:React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) {
       return;
     }
+    const file = files[0];
+
     cargando();
 
     const formData = new FormData();
+    formData.append("mail", mail);
     formData.append("file", file);
+    
+
     if (!mail) {
     Swal.fire("Error", "No se pudo obtener el correo del usuario", "error");
     return;
   }
 
-    const endpoint = `${__url}/archivos/${encodeURIComponent(mail)}`;
+    const endpoint = `${__url}/archivos`;
 
 
     try {
@@ -75,7 +82,7 @@ function Page() {
     }
   };
   const handleFileDownload = async () => {
-    const url = `https://apisst.administracionpublica-uv.cl/api/archivos/descargar/archivo-word`;
+    const url = `${__url}/archivos/molde`;
 
     try {
       const response = await axios.get(url, {
@@ -108,7 +115,7 @@ function Page() {
     }
   };
   if(isLoading){
-    return <Cargando/>;
+    return cargando;
   }
   return (
       <>

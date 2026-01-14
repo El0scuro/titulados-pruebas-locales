@@ -1,7 +1,7 @@
 export interface Asignacion {
     id: string;
-    alumno_mail: string;
-    profesor_mail: string;
+    mailEstudiante: string;
+    mailProfesor: string;
     rol: string;
-    fecha_asig: string;
+    fechaAsignacion: string;
 }

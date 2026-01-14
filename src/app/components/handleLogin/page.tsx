@@ -12,9 +12,11 @@ export default async function handleLogin(token: string, router: AppRouterInstan
       const response = await axios.get(`${__url}/user/validate`, {
       headers: { Authorization: `Bearer ${token}` }
       });
+      console.log(response);
 
       // Redirect based on the user's role
-      let lista: string[] = ["profesor", "estudiante", "jefatura", "secretario"];
+      let lista: string[] = ["docente", "estudiante", "jefatura", "secretaria"];
+      console.log(response.data?.mail);
       for (let i = 0; i < lista.length; i++) {
         if (response.data?.user === lista[i]) {
         router.push(`/${lista[i]}?rol=${lista[i]}&mail=${response.data?.mail}`); // Redirect to rol dashboard
