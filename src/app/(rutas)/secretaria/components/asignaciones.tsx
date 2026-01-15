@@ -17,7 +17,9 @@ import { Asignacion } from '@/types/asignacion';
 // Removed DatePicker related imports as they are not used in the current form structure
 
 function Asignaciones() {
-    const [viewValue, setViewValue] = useState(0); // Controls which tab is active (Visualizar or Generar)
+    // Controls which tab is active (Visualizar or Generar)
+    const [viewValue, setViewValue] = useState<'ver' | 'crear'>('ver');
+    
     const [asignaciones, setAsignaciones] = useState<Asignacion[]>([]);
     const [newAssignment, setNewAssignment] = useState<NewAssignmentState>({
         id: '',
@@ -88,7 +90,6 @@ function Asignaciones() {
     
     const encuentraEstudiante = (asignacion: Asignacion)=>{
         const estudiante = estudiantes.find(est => est.mail === asignacion.mailEstudiante);
-        console.log(asignacion, "++", estudiante)
         return estudiante?.nombre;
     }
     const encuentraProfe = (asignacion: Asignacion)=>{
@@ -133,9 +134,8 @@ function Asignaciones() {
         ...prev,
         [name as string]: value,
     }));
-    
-    };
 
+    };
 
     const handleSubmitAssignment = async () => {
         let response: any;
@@ -144,8 +144,6 @@ function Asignaciones() {
             alert('Por favor, completa todos los campos requeridos para la asignación (Estudiante, Profesor, Rol).');
             return;
         }
-        
-        console.log('Generando nueva asignación:', newAssignment);
         try {
             response = await axios.post(
                 `${__url}/asignaciones/crear`,
@@ -164,8 +162,7 @@ function Asignaciones() {
             console.log('Error completo:', error.response?.data);
         }
     };
-    
-    
+
     return (
         <Box sx={{ p: 3, width: '100%', height: '100%'}}>
             <Box sx={{ display:'flex', width: '100%', maxWidth: 500, borderTopLeftRadius:1 }}>
@@ -176,15 +173,15 @@ function Asignaciones() {
                             setViewValue(newValue);
                         }}
                     >
-                        <BottomNavigationAction label="Visualizar asignaciones" icon={<VisibilityIcon />} />
-                        <BottomNavigationAction label="Generar asignación" icon={<AddBoxIcon />} />
+                        <BottomNavigationAction label="Visualizar asignaciones" value="ver" icon={<VisibilityIcon />} />
+                        <BottomNavigationAction label="Generar asignación" value="crear" icon={<AddBoxIcon />} />
                     </BottomNavigation>
                     
                 </Box>
             <Card sx={{ mb: 3, p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: 3 }}>
                 
 
-                {viewValue === 0 && (
+                {viewValue === "ver" && (
                     <Box sx={{ mt: 2, width: '100%' }}>
                         <Typography variant="body1" sx={{ mb: 2 }}>
                             A continuación se muestran las asignaciones hechas de estudiantes a profesores.
@@ -207,7 +204,7 @@ function Asignaciones() {
                     </Box>
                 )}
 
-                {viewValue === 1 && (
+                {viewValue === "crear" && (
                     <Box sx={{ mt: 2, width: '100%', maxWidth: "600px", height:'100%'}}>
                         <Typography variant="body1" sx={{ mb: 2, textAlign: 'center' }}>
                             Aquí puedes generar una nueva asignación para un estudiante.
@@ -265,7 +262,7 @@ function Asignaciones() {
                                     onChange={handleSelectChange} // Use the generic handler
                                 >
                                     <MenuItem value=""><em>Selecciona un rol</em></MenuItem>
-                                    <MenuItem value="guía">Guía</MenuItem>
+                                    <MenuItem value="guia">Guía</MenuItem>
                                     <MenuItem value="informante">Informante</MenuItem>
                                     <MenuItem value="secretario">Secretario</MenuItem>
                                     <MenuItem value="presidente">Presidente</MenuItem>
@@ -284,6 +281,7 @@ function Asignaciones() {
                         </Box>
                     </Box>
                 )}
+                
             </Card>
         </Box>
     );
