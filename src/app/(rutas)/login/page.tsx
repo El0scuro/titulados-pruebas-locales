@@ -7,6 +7,7 @@ import LinkedinIcon from '@mui/icons-material/LinkedIn';
 import Image from "next/image";
 import Foto1 from "../../components/Fotos_info/LOGO-UV-APU-AZUL_1.png";
 import Foto2 from "../../components/Fotos_info/logo1.png";
+import { IconButton } from "@mui/material";
 
 export default function LoginPage(){
   
@@ -28,9 +29,15 @@ export default function LoginPage(){
                         Universidad de Valparaíso. Blanco 951, Valparaíso, Chile. Fono: +56 (32) 250 7000.
                     </p>
                     <div className={Estilo_login.redes}>
-                        <InstagramIcon/>
-                        <FacebookIcon/>
-                        <LinkedinIcon/>
+                        <IconButton color="primary" component="a" href="https://www.instagram.com/administracionpublicauv/">
+                            <InstagramIcon/>
+                        </IconButton>
+                        <IconButton color="primary" component="a" href="https://www.facebook.com/admpublicauv">
+                            <FacebookIcon />
+                        </IconButton>
+                        <IconButton color="primary" component="a" href="https://www.linkedin.com/in/administraci%C3%B3n-p%C3%BAblica-universidad-de-valpara%C3%ADso-b785a4b4/">
+                            <LinkedinIcon />
+                        </IconButton>
                     </div>
                 </div>
                 <div className={Estilo_login.color}>

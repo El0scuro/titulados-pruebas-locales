@@ -17,7 +17,6 @@ function Page() {
   if(!mail){
     return;
   }
-  console.log(mail)
   
   const {user,isLoading} = useUser();
   const [open, setOpen] = React.useState(false);
@@ -57,7 +56,7 @@ function Page() {
     return;
   }
 
-    const endpoint = `${__url}/archivos`;
+    const endpoint = `${__url}/ficha/ficha_inscripcion`;
 
 
     try {
@@ -82,38 +81,35 @@ function Page() {
     }
   };
   const handleFileDownload = async () => {
-    const url = `${__url}/archivos/molde`;
+  try {
+    const response = await axios.get(
+      `${__url}/ficha/fichas_inscripcion/molde.docx`,
+      { responseType: "blob" }
+    );
 
-    try {
-      const response = await axios.get(url, {
-        responseType: "blob",
-      });
+    const blob = new Blob([response.data]);
+    const url = window.URL.createObjectURL(blob);
 
-      const downloadUrl = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.setAttribute(
-        "download",
-        "Formulario Inscripción Seminario de Título.docx"
-      );
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode?.removeChild(link);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "Formulario_Inscripcion_Seminario_de_Titulo.docx";
 
-      Swal.fire(
-        "Descargado",
-        "El archivo se ha descargado correctamente.",
-        "success"
-      );
-    } catch (error: any) {
-      console.log("Error durante la descarga:", error);
-      Swal.fire(
-        "Error",
-        "Hubo un error al descargar el archivo, pruebe nuevamente más tarde.",
-        "error"
-      );
-    }
-  };
+    document.body.appendChild(a);
+    a.click();
+
+    a.remove();
+    window.URL.revokeObjectURL(url); // buena práctica
+
+    Swal.fire("Descargado", "Archivo descargado correctamente", "success");
+  } catch (error) {
+    Swal.fire(
+      "Error",
+      "Hubo un error al descargar el archivo",
+      "error"
+    );
+  }
+};
+
   if(isLoading){
     return cargando;
   }

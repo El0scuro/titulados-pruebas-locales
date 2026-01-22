@@ -21,7 +21,6 @@ export default function Page(){
 
     const codigo = searchParams.get("error");
     const rol = searchParams.get("rol");
-    console.log(searchParams,"||",codigo, "||", rol);
     
     let mensaje : any;
 

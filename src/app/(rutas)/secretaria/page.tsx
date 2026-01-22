@@ -30,8 +30,7 @@ import HomeIcon from '@mui/icons-material/Home';               // For Inicio (Da
 import Archivos from './components/archivos';
 import Asignaciones from './components/asignaciones';
 import Estudiantes from './components/estudiantes';
-//import Notificaciones from './notificaciones';
-//import Profesores from './profesores';
+import Profesores from './components/profesores';
 import Inicio from './components/inicio'; // Assuming this is your dashboard overview component
 
 // --- Dashboard Component Definitions (Placeholders if components not detailed yet) ---
@@ -50,7 +49,7 @@ const AsignacionesPage = () => (
     <Box sx={{ p: 3 }}>
         <Typography variant="h4" gutterBottom>Asignaciones</Typography>
         <Typography variant="body1">Visualiza y gestiona las asignaciones de los docentes hacia los alumnos.</Typography>
-         <Asignaciones /> {/* If Asignaciones.tsx contains the actual component */}
+         <Asignaciones />
     </Box>
 );
 
@@ -62,19 +61,11 @@ const EstudiantesPage = () => (
     </Box>
 );
 
-const NotificacionesPage = () => (
-    <Box sx={{ p: 3 }}>
-        <Typography variant="h4" gutterBottom>Panel de Notificaciones</Typography>
-        <Typography variant="body1">Revisa las alertas y comunicaciones importantes.</Typography>
-         {/*<Notificaciones /> {/* If Notificaciones.tsx contains the actual component */}
-    </Box>
-);
-
 const ProfesoresPage = () => (
     <Box sx={{ p: 3 }}>
         <Typography variant="h4" gutterBottom>Gestión de Profesores</Typography>
         <Typography variant="body1">Administra la información del personal docente.</Typography>
-         {/*<Profesores /> {/* If Profesores.tsx contains the actual component */}
+        <Profesores /> {/* If Profesores.tsx contains the actual component */}
     </Box>
 );
 
@@ -98,8 +89,6 @@ export default function SecretariaDashboardLayout() {
         return <AsignacionesPage />;
       case 'Estudiantes':
         return <EstudiantesPage />;
-      case 'Notificaciones':
-        return <NotificacionesPage />;
       case 'Profesores':
         return <ProfesoresPage />;
       default:
@@ -165,7 +154,7 @@ export default function SecretariaDashboardLayout() {
             {[
               { text: 'Estudiantes', icon: <GroupIcon /> },
               { text: 'Profesores', icon: <SchoolIcon /> },
-              { text: 'Notificaciones', icon: <NotificationsIcon /> },
+              
             ].map((item) => (
               <ListItem key={item.text} disablePadding>
                 <ListItemButton

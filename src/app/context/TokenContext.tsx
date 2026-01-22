@@ -12,7 +12,6 @@ export const TokenProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         const res = await fetch('/api/users'); // tu route que obtiene getSession()
         const data = await res.json();
-        console.log("CONTEXT", data);
         setToken(data.accessToken || null);
       } catch (err) {
         console.error('Error al obtener token:', err);

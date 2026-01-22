@@ -2,13 +2,15 @@
 
 import { BottomNavigation, BottomNavigationAction, Box, Card, Typography, TextField, Button, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import AddBoxIcon from '@mui/icons-material/AddBox';
 import SendIcon from '@mui/icons-material/Send';
-
+import { Estudiante } from '@/types/estudiante';
+import axios from 'axios';
+import __url from '@/lib/const';
 function Estudiantes() {
-
+    
     interface AssignmentRow {
         id: number;
         studentName: string;
@@ -16,15 +18,45 @@ function Estudiantes() {
         rol: string; // Correctly reflects the 'rol' column
         status: string;
     }
+    const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
+    useEffect(() => {
+    const datos_todos = async () => {
+        try {
+            const estRes = await axios.get(`${__url}/estudiante/todos`);
+            setEstudiantes(estRes.data);
+        } catch (error) {
+            console.log(error);
+        }
+    };
+    datos_todos();
+}, []);
 
     const assignmentColumns: GridColDef<AssignmentRow>[] = [
-        { field: 'id', headerName: 'ID', width: 70 },
+        { field: 'rut', headerName: 'rut', width: 150 },
         { field: 'studentName', headerName: 'Estudiante', width: 200 },
         { field: 'professorName', headerName: 'Profesor', width: 200 },
         { field: 'rol', headerName: 'Rol', width: 250 }, // DataGrid column for 'rol'
         { field: 'status', headerName: 'Estado', width: 130 },
     ];
-
+    const nombreEstudiante = (est: Estudiante) => {
+        const nombre = est.nombre 
+        + " " 
+        + est.segundoNombre 
+        + " "
+        + est.apellido
+        + " "
+        + est.segundoApellido
+        return nombre;
+    }
+    const filasGuia = useMemo(() => {
+          if (!estudiantes.length) return [];
+          const Filas = estudiantes.map(est => ({
+                id: est.rut,
+                studentName: nombreEstudiante(est),
+                
+          }));
+          return Filas;
+          }, [estudiantes]);
     const assignmentRows: AssignmentRow[] = [
         { id: 1, studentName: 'Juan Pérez', professorName: 'Dr. García', rol: 'guía', status: 'Pendiente' },
         { id: 2, studentName: 'María López', professorName: 'Dra. Soto', rol: 'informante', status: 'En Proceso' },
@@ -71,8 +103,6 @@ function Estudiantes() {
             alert('Por favor, completa todos los campos requeridos para la asignación (Estudiante, Profesor, Rol).');
             return;
         }
-
-        console.log('Generando nueva asignación:', newAssignment);
 
         // Here you would typically send this data to your backend API
         /*

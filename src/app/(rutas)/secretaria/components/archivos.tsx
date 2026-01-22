@@ -1,11 +1,12 @@
 "use client"; // Required for client-side components in Next.js App Router
-
+import CloudDownloadDualColor from '@/app/components/downloadIcon';
 import Backdrop from '@mui/material/Backdrop';
 import { Box, Button, Card, CardActionArea, Paper, Typography, Modal, Select, MenuItem, FormControl, InputLabel, Snackbar } from '@mui/material'; // Added Select, MenuItem, FormControl, InputLabel
 import React, { useState } from 'react';
 import SingleFileUploadButton from '@/app/components/singleFileButton'; // Ensure this path is correct
 import SendIcon from '@mui/icons-material/Send';
-import UploadFileIcon from '@mui/icons-material/UploadFile'; // Icon for upload action
+import UploadFileIcon from '@mui/icons-material/Upload'; // Icon for upload action
+import DownloadFileIcon from '@mui/icons-material/Download';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import type { GridColDef, GridActionsCellItemProps } from '@mui/x-data-grid';
 import axios from 'axios';
@@ -13,56 +14,92 @@ import __url from '@/lib/const';
 import Swal from 'sweetalert2';
 import { useAccessToken } from '../../../context/TokenContext';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import * as XLSX from 'xlsx';
+import { useSearchParams } from 'next/navigation';
 function Archivos() {
+
+    const searchParams = useSearchParams();
+    const sede = searchParams.get("sede") ?? "";
+    //Aquí se guardará la plantilla excel
     const [archivoExcel, setArchivoExcel] = useState<File | null>(null);
+
+
     const [selectedStudentIdForUpload, setSelectedStudentIdForUpload] = useState<string | null>(null);
-    const [openModal, setOpenModal] = useState(false); // Renamed 'open' to 'openModal' for clarity
+
+
+    const [openUploadModal, setOpenUploadModal] = useState(false); // Renamed 'open' to 'openModal' for clarity
+
+    const [openDownloadModal, setOpenDownloadModal] = useState(false);
+
     const [selectedFileType, setSelectedFileType] = useState<string>(''); // State for selected file type in modal
+
+
     const [individualFileToUpload, setIndividualFileToUpload] = useState<File | null>(null); // State for the file chosen in the modal
+
+
     const token = useAccessToken();
+
+
     const [fileInputKey, setFileInputKey] = useState(0); // <-- Add this state
+
+    
     const [rows, setRows] = useState<StudentRow[]>([]);
 
-    const handleOpenModal = () => setOpenModal(true);
-    const handleCloseModal = () => {
-        setOpenModal(false);
-        setSelectedFileType(''); // Reset selected file type on close
-        setIndividualFileToUpload(null); // Reset file on close
-        setSelectedStudentIdForUpload(null); // Reset student ID on close
+    //selecciona el archivo excel y lo guarda en ArchivoExcel
+    const handleExcelFileSelect = (file: File | null) => { // Renamed for clarity
+        setArchivoExcel(file);
+        if (file) {
+            console.log('Archivo Excel seleccionado:', file.name, file);
+        } else {
+            console.log('Archivo Excel limpiado.');
+        }
     };
 
-    interface DataGridProps {
-        rows: StudentRow[];
-        columns: GridColDef<StudentRow>[];
-        pageSizeOptions: number[];
-        initialState: {
-            pagination: {
-                paginationModel: {
-                    pageSize: number;
-                };
-            };
-        };
-        checkboxSelection: boolean;
-        disableRowSelectionOnClick: boolean;
-        getRowId: (row: StudentRow) => string;
-    }
-    const handleSendExcelFile = async () => { // Renamed for clarity
+    const handleFileDownload = async () => {
+  try {
+    const response = await axios.get(
+      `${__url}/archivos/archivos_secretaria/download/ficha_estudiantes.xlsx`,
+      { responseType: "blob" }
+    );
+
+    const blob = new Blob([response.data]);
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "ficha_de_estudiantes.xlsx";
+
+    document.body.appendChild(a);
+    a.click();
+
+    a.remove();
+    window.URL.revokeObjectURL(url); // buena práctica
+
+    Swal.fire("Descargado", "Archivo descargado correctamente", "success");
+  } catch (error) {
+    Swal.fire(
+      "Error",
+      "Hubo un error al descargar el archivo",
+      "error"
+    );
+  }
+};
+
+    const handleSendExcelFile = async (sede: string) => { // Renamed for clarity
         if (archivoExcel) {
             const formData = new FormData();
             formData.append('file', archivoExcel);
-
+            formData.append('sede', sede );
             try {
-                const response = await axios.post(`${__url}/archivos/upload/alumnos`, formData, { headers: { Authorization: `Bearer ${token}` } });
+                const response = await axios.post(`${__url}/archivos/ficha_estudiantes`, formData,{ 
+                    withCredentials: true}
+                );
                 if (response.status) {
                     const result = response.data;
                     setSelectedFileType
                     setArchivoExcel(null);
                     setFileInputKey(prevKey => prevKey + 1);
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Éxito',
-                        text: `Archivo Excel enviado exitosamente.`,
-                    });
+                    
                 } else {
                     Swal.fire({
                         icon: 'error',
@@ -101,14 +138,63 @@ function Archivos() {
 
     };
 
-    const handleExcelFileSelect = (file: File | null) => { // Renamed for clarity
-        setArchivoExcel(file);
-        if (file) {
-            console.log('Archivo Excel seleccionado:', file.name, file);
-        } else {
-            console.log('Archivo Excel limpiado.');
-        }
+    const handleExcel = (file: File) => {
+        const reader = new FileReader();  
+        //se ejecuta cuando se termine de leer el archivo
+        reader.onload = async(e) => {
+            const data = e.target?.result;
+            if (!data) return;
+
+            const workbook = XLSX.read(data, { type: "array" });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+
+            const json = XLSX.utils.sheet_to_json(worksheet);
+            const response = await axios.post(`${__url}/estudiante/varios`, json, {
+                withCredentials: true
+            })
+            
+        };
+        //Lee el archivo
+        reader.readAsArrayBuffer(file);
     };
+    //Abrir y  cerrar ventana para subir archivos individuales
+    const handleOpenUploadModal = () => setOpenUploadModal(true);
+    const handleCloseUploadModal = () => {
+        setOpenUploadModal(false);
+        setSelectedFileType(''); // Reset selected file type on close
+        setIndividualFileToUpload(null); // Reset file on close
+        setSelectedStudentIdForUpload(null); // Reset student ID on close
+    };
+
+    //Abrir y cerrar ventana para bajar archivos individuales
+
+    const handleOpenDownloadModal = () => setOpenDownloadModal(true);
+    const handleCloseDownloadModal = () => {
+        setOpenDownloadModal(false);
+        setSelectedFileType(''); // Reset selected file type on close
+        setIndividualFileToUpload(null); // Reset file on close
+        setSelectedStudentIdForUpload(null); // Reset student ID on close
+    };
+    
+    interface DataGridProps {
+        rows: StudentRow[];
+        columns: GridColDef<StudentRow>[];
+        pageSizeOptions: number[];
+        initialState: {
+            pagination: {
+                paginationModel: {
+                    pageSize: number;
+                };
+            };
+        };
+        checkboxSelection: boolean;
+        disableRowSelectionOnClick: boolean;
+        getRowId: (row: StudentRow) => string;
+    }
+    
+
+    
 
     // --- DataGrid Columns and Rows for Manual File Upload Section ---
     interface StudentRow {
@@ -137,10 +223,17 @@ function Archivos() {
             headerName: 'Acciones',
             width: 120,
             getActions: (params: ActionParams): React.ReactElement<GridActionsCellItemProps>[] => [
+                
                 <GridActionsCellItem
                     icon={<UploadFileIcon />}
                     label="Subir Documento"
                     onClick={() => handleClickUpload(params.row.mail)} // Simpler click handler
+                    showInMenu
+                />,
+                <GridActionsCellItem
+                    icon={<DownloadFileIcon />}
+                    label="Bajar Documento"
+                    onClick={() => handleClickDownload(params.row.mail)} // Simpler click handler
                     showInMenu
                 />,
             ],
@@ -149,7 +242,7 @@ function Archivos() {
 
     const fetchStudents = async () => {
         try {
-            const response = await axios.get(`${__url}/estudiante`, {
+            const response = await axios.get(`${__url}/estudiante/todos`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             console.log(response.data);
@@ -177,8 +270,12 @@ function Archivos() {
     // Handler for the "Subir Documento" button click within DataGrid
     const handleClickUpload = (mail: string) => {
         setSelectedStudentIdForUpload(mail);
-        console.log(mail)
-        handleOpenModal(); // Open the modal
+        handleOpenUploadModal(); // Open the modal
+    };
+    // Handler for the "Bajar Documento" button click within DataGrid
+    const handleClickDownload = (mail: string) => {
+        setSelectedStudentIdForUpload(mail);
+        handleOpenDownloadModal(); // Open the modal
     };
 
     const handleFileTypeChange = (event: any) => { // Type 'any' for event from Select
@@ -197,18 +294,41 @@ function Archivos() {
     const handleUploadIndividualFile = async () => {
 
         if (selectedStudentIdForUpload && selectedFileType && individualFileToUpload) {
+            
             const formData = new FormData();
+            formData.append('mail', selectedStudentIdForUpload);
             formData.append('file', individualFileToUpload);
-            formData.append('mail', selectedStudentIdForUpload.toString());
+            
             
 
             try {
-                const response = axios.post(`${__url}/files/upload/${selectedFileType}`, formData, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        'Content-Type': 'multipart/form-data',
-                    },
-                });
+                let response: any;
+                switch (selectedFileType){
+                case "ficha":
+            
+                    response = axios.post(`${__url}/${selectedFileType}/ficha_inscripcion`, formData, {
+                        withCredentials: true,
+                    });
+                    break;
+                case "tesis":
+                    response = axios.post(`${__url}/${selectedFileType}/Tesis`, formData, {
+                        withCredentials: true,
+                    });
+                    break;
+                case "guia":
+                    response = axios.post(`${__url}/${selectedFileType}/rubrica_guia`, formData, {
+                        withCredentials: true,
+                    });
+                    break;
+                case "informante":
+                    response = axios.post(`${__url}/${selectedFileType}/rubrica_informante`, formData, {
+                        withCredentials: true,
+                    });
+                    break;
+                default:
+                    break;
+            }
+                
                 Swal.fire({
                     icon: 'success',
                     title: `Archivo subido correctamente: ${individualFileToUpload.name}`
@@ -223,7 +343,7 @@ function Archivos() {
                 console.error('Error de red al subir archivo individual:', error);
             }
                         
-            handleCloseModal();
+            handleCloseUploadModal();
 
         } else {
             console.warn('Faltan datos para subir el archivo individual (estudiante, tipo de archivo o archivo).');
@@ -247,7 +367,130 @@ function Archivos() {
         flexDirection: 'column',
         gap: 2,
     };
+    
+  const handleStudentFileDownload = async () => {
+  try {
+    if (selectedStudentIdForUpload && selectedFileType) {
+            
+            
+            const partMail = selectedStudentIdForUpload.replace(/[^a-zA-Z0-9]/g, '_');
+            
 
+            try {
+                let response: any;
+                let blob: any;
+                let url: any;
+                let a: any;
+                switch (selectedFileType){
+                case 'fichas_inscripcion':
+                    
+                    response = axios.get(`${__url}/ficha/${selectedFileType}/${partMail}-Formulario_Inscripcion_Seminario_de_Titulo.docx`, 
+                        { responseType: "blob" }
+                    );
+                    blob = new Blob([response.data]);
+                    url = window.URL.createObjectURL(blob);
+
+                    a = document.createElement("a");
+                    a.href = url;
+                    a.download = partMail + "-Formulario_Inscripcion_Seminario_de_Titulo.docx";
+
+                    document.body.appendChild(a);
+                    a.click();
+
+                    a.remove();
+                    window.URL.revokeObjectURL(url); // buena práctica
+                    break;
+                case "tesis":
+                    response = axios.get(`${__url}/tesis/${selectedFileType}/${partMail}`, 
+                        { responseType: "blob" }
+                    );
+                    blob = new Blob([response.data]);
+                    url = window.URL.createObjectURL(blob);
+
+                    a = document.createElement("a");
+                    a.href = url;
+                    a.download = partMail + "-Formulario_Inscripcion_Seminario_de_Titulo.docx";
+
+                    document.body.appendChild(a);
+                    a.click();
+
+                    a.remove();
+                    window.URL.revokeObjectURL(url); // buena práctica
+                    break;
+                    
+                    break;
+                case "guia":
+                    response = axios.get(`${__url}/guia/${selectedFileType}/${partMail}`, 
+                        { responseType: "blob" }
+                    );
+                    blob = new Blob([response.data]);
+                    url = window.URL.createObjectURL(blob);
+
+                    a = document.createElement("a");
+                    a.href = url;
+                    a.download = partMail + "-Formulario_Inscripcion_Seminario_de_Titulo.docx";
+
+                    document.body.appendChild(a);
+                    a.click();
+
+                    a.remove();
+                    window.URL.revokeObjectURL(url); // buena práctica
+                    break;
+                case "informante":
+                    response = axios.get(`${__url}/informante/${selectedFileType}/${partMail}`, 
+                        { responseType: "blob" }
+                    );
+                    blob = new Blob([response.data]);
+                    url = window.URL.createObjectURL(blob);
+
+                    a = document.createElement("a");
+                    a.href = url;
+                    a.download = partMail + "-Formulario_Inscripcion_Seminario_de_Titulo.docx";
+
+                    document.body.appendChild(a);
+                    a.click();
+
+                    a.remove();
+                    window.URL.revokeObjectURL(url); // buena práctica
+                    break;
+                default:
+                    break;
+            }
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: `Archivo bajado correctamente`
+                })
+
+            } catch (error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error al subir el archivo',
+                    text: `No se pudo subir el archivo`,
+                });
+                console.error('Error de red al subir archivo individual:', error);
+            }
+                        
+            handleCloseDownloadModal();
+
+        } else {
+            console.warn('Faltan datos para subir el archivo individual (estudiante, tipo de archivo o archivo).');
+            alert('Por favor, selecciona el tipo de archivo y el archivo a subir.');
+        }
+
+    
+
+    
+
+    Swal.fire("Descargado", "Archivo descargado correctamente", "success");
+  } catch (error) {
+    Swal.fire(
+      "Error",
+      "Hubo un error al descargar el archivo",
+      "error"
+    );
+  }
+};
     return (
         <Box sx={{ p: 3, width: '100%' }}>
 
@@ -255,13 +498,26 @@ function Archivos() {
                 <Typography variant="h5" sx={{ mb: 1, fontWeight: 600, textAlign: 'center' }}>
                     Carga de estudiantes vía archivo Excel
                 </Typography>
-                <a href="/subida.xlsx" download>
-                    <CardActionArea sx={{ width: '100%', borderRadius: 2, boxShadow: 5, p: 1, mt: 1 }}>
-                        <Typography variant="body1" sx={{ textAlign: 'center', color: 'primary.main', fontWeight: 500 }}>
-                            Descargar plantilla para estudiantes
-                        </Typography>
-                    </CardActionArea>
-                </a>
+                <Button
+                    variant="contained"
+                    component="span"
+                    startIcon={<CloudDownloadDualColor />}
+                    onClick={handleFileDownload}
+                    sx={{
+                        color:'#003c58',
+                        backgroundColor:'white',
+                        borderRadius: '8px',
+                        padding: '10px 20px',
+                        fontSize: '1rem',
+                        textTransform: 'none',
+                        boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.1)',
+                        '&:hover': {
+                            boxShadow: '0px 6px 15px rgba(0, 0, 0, 0.2)',
+                        },
+                    }}
+                >
+                    Descargar plantilla para estudiantes
+                </Button>
                 <SingleFileUploadButton
                     key={fileInputKey}
                     onFileSelect={handleExcelFileSelect}
@@ -278,7 +534,7 @@ function Archivos() {
                             variant="contained"
                             color="success"
                             startIcon={<SendIcon />}
-                            onClick={handleSendExcelFile}
+                            onClick={() => handleExcel(archivoExcel)}
                             sx={{
                                 borderRadius: '8px',
                                 padding: '10px 20px',
@@ -344,8 +600,8 @@ function Archivos() {
             <Modal
                 aria-labelledby="upload-modal-title"
                 aria-describedby="upload-modal-description"
-                open={openModal} // Use openModal state
-                onClose={handleCloseModal}
+                open={openUploadModal} // Use openModal state
+                onClose={handleCloseUploadModal}
                 closeAfterTransition
                 slots={{ backdrop: Backdrop }}
                 slotProps={{
@@ -390,7 +646,7 @@ function Archivos() {
                     )}
 
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3, gap: 2 }}>
-                        <Button variant="outlined" onClick={handleCloseModal} sx={{ flexGrow: 1 }}>
+                        <Button variant="outlined" onClick={handleCloseUploadModal} sx={{ flexGrow: 1 }}>
                             Cancelar
                         </Button>
                         <Button
@@ -401,6 +657,59 @@ function Archivos() {
                             sx={{ flexGrow: 1 }}
                         >
                             Subir
+                        </Button>
+                    </Box>
+                </Box>
+            </Modal>
+
+            {/* Modal for individual file download */}
+            <Modal
+                aria-labelledby="upload-modal-title"
+                aria-describedby="upload-modal-description"
+                open={openDownloadModal} // Use openModal state
+                onClose={handleCloseDownloadModal}
+                closeAfterTransition
+                slots={{ backdrop: Backdrop }}
+                slotProps={{
+                    backdrop: {
+                        timeout: 500,
+                    },
+                }}
+            >
+                <Box sx={modalStyle}>
+                    <Typography id="upload-modal-title" variant="h6" component="h2" sx={{ textAlign: 'center', mb: 2 }}>
+                        Bajar Documento de él Estudiante : {selectedStudentIdForUpload}
+                    </Typography>
+
+                    <FormControl fullWidth sx={{ mb: 2 }}>
+                        <InputLabel id="file-type-select-label">Tipo de Documento</InputLabel>
+                        <Select
+                            labelId="file-type-select-label"
+                            id="file-type-select"
+                            value={selectedFileType}
+                            label="Tipo de Documento"
+                            onChange={handleFileTypeChange}
+                        >
+                            <MenuItem value=""><em>Selecciona un tipo</em></MenuItem>
+                            <MenuItem value="fichas_inscripcion">Ficha de Ingreso</MenuItem>
+                            <MenuItem value="archivos_Tesis">Tesis</MenuItem>
+                            <MenuItem value="archivos_Guia">Rubrica Guía</MenuItem>
+                            <MenuItem value="archivos_Informante">Rubrica Informante</MenuItem>
+                        </Select>
+                    </FormControl>
+
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3, gap: 2 }}>
+                        <Button variant="outlined" onClick={handleCloseDownloadModal} sx={{ flexGrow: 1 }}>
+                            Cancelar
+                        </Button>
+                        <Button
+                            variant="contained"
+                            startIcon={<SendIcon />}
+                            onClick={handleStudentFileDownload}
+                            disabled={!selectedFileType} // Disable if type not selected
+                            sx={{ flexGrow: 1 }}
+                        >
+                            Bajar
                         </Button>
                     </Box>
                 </Box>

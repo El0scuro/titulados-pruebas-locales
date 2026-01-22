@@ -1,6 +1,6 @@
 "use client";
 import LogoutIcon from "@mui/icons-material/Logout";
-import {Button} from "@mui/material";
+import {Button, Color, Stack} from "@mui/material";
 import * as React from 'react';
 import Box from '@mui/material/Box';
 import BottomNavigation from '@mui/material/BottomNavigation';
@@ -9,120 +9,176 @@ import SchoolIcon from '@mui/icons-material/School';
 import InfoIcon from '@mui/icons-material/Info';
 import DescriptionIcon from '@mui/icons-material/Description';
 import GavelIcon from '@mui/icons-material/Gavel';
-import GuiaContent from './components/guia';
-import InformanteContent from './components/informante';
-import SecretarioContent from './components/secretario';
-import PresidenteContent from './components/presidente';
 import { Typography } from '@mui/material';
 import { DataGrid } from "@mui/x-data-grid";
 import { Asignacion } from '@/types/asignacion';
-import axios from 'axios';
+import axios, { isCancel } from 'axios';
 import __url from '@/lib/const';
 import { Estudiante } from "@/types/estudiante";
-import { Profesor } from "@/types/profesor";
+import { Estado } from "@/types/estados"; 
+import { Notas } from "@/types/notas";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState, useMemo, use} from "react";
 import { GridColDef, GridRowsProp } from '@mui/x-data-grid';
-import CancelIcon from '@mui/icons-material/Cancel';
-import { red } from "@mui/material/colors";
+import { Parastoo } from "next/font/google";
+import { useCallback } from "react";
+
+
 
 export default function CustomBottomNavigation() {
+
+  //state para sellecionar fila que se enviará al componente hijo
+  const [filaSeleccionada, setFilaSeleccionada] = useState<any>("");
+  
+  //state para las filas de la tabla de guia
+  const [filasGuia, setFilasGuia] = useState<any[]>([]);
+
+  //state para las filas de la tabla de informante
+  const [filasInformante, setFilasInformante] = useState<any[]>([]);
+
+  //state para mostrar componente hijo 
+  const [showpaginaGuia, setShowpaginaGuia] = useState(false);
+  
+  //state para los diferentes valores que puede mostrar el componente padre
   const [value, setValue] = useState<'guia'|'informante'|'secretario'|'presidente'>('guia');
+  
+  //states para la descarga de datos desde el back
   const [asignaciones, setAsignaciones] = useState<Asignacion[]>([]);
   const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
-  const [profesores, setProfesores] = useState<Profesor[]>([]);
+  const [notas, setNotas] = useState<Notas[]>([]);
+  const [estados, setEstados] = useState<Estado[]>([]);
   
   //Correo del profesor que ingresó
   const searchParams = useSearchParams();
   const mail = searchParams.get("mail");
   
-  //importo los estudiantes, los profesores, y las asignaciones
+  //importo los estudiantes, los profesores, las notas, y las asignaciones
   useEffect(() => {
     const datos_todos = async () => {
         try {
-            const [estRes, proRes, asigRes] = await Promise.all([
+            const [estRes, asigRes, notaRes, estaRes] = await Promise.all([
                 axios.get(`${__url}/estudiante/todos`),
-                axios.get(`${__url}/profesor/todos`),
-                axios.get(`${__url}/asignaciones/todas`)
+                axios.get(`${__url}/asignaciones/todas`),
+                axios.get(`${__url}/notas/todas`),
+                axios.get(`${__url}/estados/todos`)
             ]);
             setEstudiantes(estRes.data);
-            setProfesores(proRes.data);
             setAsignaciones(asigRes.data);
+            setNotas(notaRes.data);
+            setEstados(estaRes.data);
         } catch (error) {
             console.log(error);
         }
     };
     datos_todos();
 }, []);
-
+  
 
   //filtro las asignaciones con el profesor que ingresó, y las cuales sean con el rol 'guia'
-  const asigsGuia = asignaciones.filter(asig => asig.mailProfesor === mail).filter(asig => asig.rol === "guia");
-  const asigsInformante = asignaciones.filter(asig => asig.mailProfesor === mail).filter(asig => asig.rol === "informante");
+  const asigsGuia = useMemo(() => {
+    return asignaciones.filter(a => a.mailProfesor === mail && a.rol === 'guia');
+  }, [asignaciones, mail]);
+
+  //filtro las asignaciones con el profesor que ingresó, y las cuales sean con el rol 'informante'
+  const asigsInformante = useMemo(() => {
+    return asignaciones.filter(a => a.mailProfesor === mail && a.rol === 'informante');
+  }, [asignaciones, mail]);
+
   const asigSecretario = asignaciones.filter(asig => asig.mailProfesor === mail).filter(asig => asig.rol === "secretario");
   const asigPresidente = null//asignaciones.filter(asig => asig.mailProfesor === mail).filter(asig => asig.rol === "presidente");
 
-  let bloqueo1;
-  let bloqueo2;
-  let bloqueo3;
-  let bloqueo4;
-
-  if(!asigsGuia){
-    bloqueo1 = <CancelIcon/>
+  //habilitar y bloquear botones
+  let guiaColor: any;
+  let inforColor: any;
+  let guiaCond = true;
+  let inforCond = true;
+  if(asigsGuia.length === 0){
+    guiaCond = false;
+    guiaColor = 'red';
   }
-  if(!asigsInformante){
-    bloqueo2 = <CancelIcon/>
+  if(asigsInformante.length === 0){
+    inforCond = false;
+    inforColor = 'red';
   }
-  if(!asigSecretario){
-    bloqueo3 = <CancelIcon/>
-  }
-  if(!asigPresidente){
-    bloqueo4 = <CancelIcon sx={{color: "red", position: "absolute", top:"700px", left:"500px"}}/>
-  }
-  //encontrará al estudiante asociado a x asignacion
-  const encuentraEstudiante = (asignacion: Asignacion)=>{
-    const estudiante = estudiantes.find(est => est.mail === asignacion.mailEstudiante);
-    const nombre = estudiante?.nombre + " " + estudiante?.apellido + " " + estudiante?.segundoApellido
-    return nombre;
-  }
-
+  
   //columnas guia
-    const columnsGuia: GridColDef[] = [
-      { field: 'rut', headerName: 'RUT', width: 90 },
-      { field: 'Estudiante', headerName: 'Estudiante', width: 300 },
-      { field: 'fecha', headerName: 'Fecha', width:90}
-    ];
+  const columnsGuia: GridColDef[] = [
+    { field: 'rut', headerName: 'RUT', width: 90 },
+    { field: 'Estudiante', headerName: 'Estudiante', width: 200 },
+    { field: 'fecha', headerName: 'Fecha', width:90},
+    { field: 'nota', headerName: 'Nota', width:50},
+    { field: 'estado', headerName: 'Estado', width: 90},
+    { field: 'gestionamiento', headerName: 'Gestionamiento', width:300, renderCell: (params)=> <Button onClick={() => {
+      setShowpaginaGuia(true); 
+      setFilaSeleccionada(params.row); 
+    }} 
+    >
+      Gestionar Documentos y Nota
+    </Button>},
+    
+  ];
 
   //filas guia
-  const filasGuia = useMemo(() => {
-      if (!asigsGuia.length) return [];
-      const Filas = asigsGuia.map(asig => ({
-            rut: asig.id,
-            Estudiante: encuentraEstudiante(asig) ?? '-',
-            fecha: asig.fechaAsignacion
-      }));
-      return Filas;
-      }, [asignaciones, estudiantes, profesores]);
+  useEffect(() => {
+  if (!asigsGuia.length) {
+    setFilasGuia([]);
+    return;
+  }
+
+  const nuevasFilas = asigsGuia.map(asig => ({
+    rut: asig.id,
+    Estudiante: estudiantes.find(est => est.mail === asig.mailEstudiante)
+                  ? `${estudiantes.find(est => est.mail === asig.mailEstudiante)?.nombre} 
+                  ${estudiantes.find(est => est.mail === asig.mailEstudiante)?.apellido} 
+                  ${estudiantes.find(est => est.mail === asig.mailEstudiante)?.segundoApellido}`
+                  : '-',
+    fecha: asig.fechaAsignacion,
+    nota: notas.find(not => not.mailEstudiante === asig.mailEstudiante)?.notaGuia ?? '---',
+    estado: estados.find(est => est.mailEstudiante === asig.mailEstudiante)?.estado 
+  }));
+
+  setFilasGuia(nuevasFilas);
+}, [asigsGuia, estudiantes, notas]);
+
 
   //columnas informante
   const columnsInformante: GridColDef[] = [
-      { field: 'rut', headerName: 'RUT', width: 90 },
-      { field: 'Estudiante', headerName: 'Estudiante', width: 300 },
-      { field: 'estado', headerName: 'Estado', width: 150 },
-      { field: 'fecha', headerName: 'Fecha', width: 150 },
-    ];
+    { field: 'rut', headerName: 'RUT', width: 90 },
+    { field: 'Estudiante', headerName: 'Estudiante', width: 200 },
+    { field: 'fecha', headerName: 'Fecha', width:90},
+    { field: 'nota', headerName: 'Nota', width:50},
+    { field: 'estado', headerName: 'Estado', width: 90},
+    { field: 'gestionamiento', headerName: 'Gestionamiento', width:300, renderCell: (params)=> <Button onClick={() => {
+      setShowpaginaGuia(true); 
+      setFilaSeleccionada(params.row); 
+    }} 
+    >
+      Gestionar Documentos y Nota
+    </Button>},
+    
+  ];
 
   //filas informante
-  const filasInformante = useMemo(() => {
-      if (!asigsInformante.length) return [];
-      const Filas = asigsInformante.map(asig => ({
-            rut: asig.id,
-            Estudiante: encuentraEstudiante(asig) ?? '-',
-            estado: "Estado en producción",
-            fecha: asig.fechaAsignacion
-      }));
-      return Filas;
-      }, [asignaciones, estudiantes, profesores]);
+  useEffect(() => {
+  if (!asigsInformante.length) {
+    setFilasInformante([]);
+    return;
+  }
+
+  const nuevasFilas = asigsInformante.map(asig => ({
+    rut: asig.id,
+    Estudiante: estudiantes.find(est => est.mail === asig.mailEstudiante)
+                  ? `${estudiantes.find(est => est.mail === asig.mailEstudiante)?.nombre} 
+                  ${estudiantes.find(est => est.mail === asig.mailEstudiante)?.apellido} 
+                  ${estudiantes.find(est => est.mail === asig.mailEstudiante)?.segundoApellido}`
+                  : '-',
+    fecha: asig.fechaAsignacion,
+    nota: notas.find(not => not.mailEstudiante === asig.mailEstudiante)?.notaGuia ?? '---',
+    estado: estados.find(est => est.mailEstudiante === asig.mailEstudiante)?.estado
+  }));
+
+  setFilasInformante(nuevasFilas);
+}, [asigsInformante, estudiantes, notas]);
 
   //columas secretario
   const columnsSecretario: GridColDef[] = [
@@ -155,6 +211,34 @@ export default function CustomBottomNavigation() {
       { field: 'dateIssued', headerName: 'Fecha Emisión', width: 150, editable: true },
     ];
 
+    const handleGuardarNota = useCallback(
+  (notaNueva: number, estadoNuevo: string) => {
+    if (!filaSeleccionada) return;
+
+    if (value === 'guia') {
+      setFilasGuia(prev =>
+        prev.map(f =>
+          f.rut === filaSeleccionada.rut
+            ? { ...f, nota: notaNueva, estado: estadoNuevo }
+            : f
+        )
+      );
+    }
+
+    if (value === 'informante') {
+      setFilasInformante(prev =>
+        prev.map(f =>
+          f.rut === filaSeleccionada.rut
+            ? { ...f, nota: notaNueva, estado: estadoNuevo }
+            : f
+        )
+      );
+    }
+  },
+  [filaSeleccionada, value]
+);
+
+
   return (
     
     <Box sx={{ width: '100%' }}>
@@ -170,11 +254,6 @@ export default function CustomBottomNavigation() {
       <Typography variant="h4" sx={{ textAlign: 'center', mt: 2 }}>
         Gestión De Notas Para Docente
       </Typography>
-      {bloqueo1}
-      {bloqueo2}  
-      {bloqueo3}
-      {bloqueo4}
-      
       <BottomNavigation
         showLabels
         value={value}
@@ -183,16 +262,19 @@ export default function CustomBottomNavigation() {
         }}
         sx={{ width: '100%', position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000 }} // Fixed position at the bottom
       >
+        <BottomNavigationAction disabled={guiaCond === false} label="Guía" value='guia' sx={{color: guiaColor}} icon={<SchoolIcon />}/>
+        <BottomNavigationAction disabled={inforCond === false} label="Informante" value='informante' sx={{color: inforColor}} icon={<InfoIcon />} />
         
-        <BottomNavigationAction label="Guía" value='guia' icon={<SchoolIcon />} />
-        
-        <BottomNavigationAction label="Informante" value='informante' icon={<InfoIcon />} />
-        
-        <BottomNavigationAction label="Secretario" value='secretario' icon={<DescriptionIcon />} />
-        
-        <BottomNavigationAction label="Presidente" value= 'presidente' icon={<GavelIcon />} />
       </BottomNavigation>
       <Box>
+        {showpaginaGuia && (
+          <PageGestionamiento 
+          fila={filaSeleccionada}
+          onClose={() => setShowpaginaGuia(false)} 
+          onGuardar={handleGuardarNota}
+          estudiantes={estudiantes}
+          />
+          )}
           {value === 'guia' && (
             <Box sx={{ p: 3, width: '100%', height: 400 }}>
               <Typography variant='h2'>Sección Guía</Typography>
@@ -252,5 +334,145 @@ export default function CustomBottomNavigation() {
       </Box>
     </Box>
     
+  );
+}
+type PageProps ={
+  fila: any;
+  estudiantes: Estudiante[];
+  onGuardar: (notaNueva: number, estado:string) => void;
+  onClose: () => void;
+}
+function PageGestionamiento({ onGuardar, onClose, fila, estudiantes}: PageProps){
+  const [nota, setNota] = useState("");
+  const mailEstudiante = estudiantes.find(est => est.rut === fila.rut)?.mail ?? null;
+  const guardar = async (nota: string) => {
+  try {
+    const valor = Number(nota);
+    let estadoNuevo: string;
+
+    await axios.patch(`${__url}/notas/actualizar`, {
+      mailEstudiante,
+      tipoNota: "notaGuia",
+      valor
+    });
+
+    if (valor >= 4) {
+      estadoNuevo = "aceptado";
+      await axios.patch(`${__url}/estados/actualizar`, {
+        mailEstudiante,
+        estado: estadoNuevo
+      });
+    } else {
+      estadoNuevo = "rechazado";
+      await axios.patch(`${__url}/estados/actualizar`, {
+        mailEstudiante,
+        estado: estadoNuevo
+      });
+    }
+
+    
+    onGuardar(valor, estadoNuevo);
+
+  } catch (error) {
+    console.error(error);
+    alert("Error al guardar la nota");
+  }
+};
+
+
+  return(
+    <Box sx={{
+      backgroundColor:'white', 
+      position:'absolute', 
+      zIndex: 1000, 
+      top:"200px",
+      left:"700px",
+      height:"300px",
+      width:"450px",
+      borderRadius:'2px'
+    }}>
+      {/*Fila uno*/}
+      <Box sx={{display:'flex', flexDirection:'row', }}>
+        <Box sx={{backgroundColor: 'white', 
+          display:'flex', 
+          justifyContent:'center', 
+          alignItems:'center', 
+          width:'225px', 
+          height:'50px',
+          border:'1px solid black',}}
+        >
+          <h3>Gestión de Documentos</h3>
+        </Box>
+        <Box sx={{backgroundColor: 'white', 
+          display:'flex', 
+          justifyContent:'center', 
+          alignItems:'center', 
+          width:'225px', 
+          height:'50px',
+          border:'1px solid black',}}
+        >
+          <h3>Gestión Nota</h3>
+        </Box>
+      </Box>
+      {/*Fila dos*/}
+      <Box sx={{display:'flex', flexDirection:'row'}}>
+        <Box sx={{
+          display:'flex',
+          flexDirection:'column',
+          justifyContent:'center',
+          alignItems:'center',
+          width:'225px',
+          height:'250px',
+          textAlign:'center',
+          border:'1px solid black',
+        }}>
+          <h4>Nota del guía</h4>
+          <input type='text' value={nota} onChange={(e) => setNota(e.target.value)} placeholder="ejem: 6,3" style={{height:'30px',width:'100px', borderRadius:'10px', textAlign:'center'}}/>
+          <p>Ingrese un valor entre 1 y 7. <br/> 
+              (Con un solo decimal).
+          </p>
+          <Box sx={{
+            display:'flex',
+            flexDirection:'row'}}>
+              <Stack spacing='30px' direction='row'>
+                <Button 
+                onClick={() => guardar(nota)} 
+                sx={{ 
+                  color:'white', 
+                  background:'blue'}}
+                >
+                  GUARDAR
+                </Button>
+                <Button 
+                onClick={() => {onClose();}} 
+                sx={{ 
+                  color:'white', 
+                  background:'red'}}
+                >
+                  CERRAR
+                </Button>
+              </Stack>
+            
+          </Box>
+        
+        </Box>
+        <Box sx={{
+          display:'flex',
+          flexDirection:'column',
+          justifyContent:'center',
+          alignItems:'center',
+          width:'225px',
+          height:'250px',
+          border:'1px solid black',
+          }}>
+          <Stack spacing='8px'>
+            <Button sx={{backgroundColor:'white', border:'2px solid black', color:'white', background:'blue', height:'40px', width:'190px'}}>Descargar Rúbrica</Button>
+            <Button sx={{backgroundColor:'white', border:'2px solid black', color:'white', background:'blue', height:'40px', width:'190px'}}>Subir Rúbrica</Button>
+            <Button sx={{backgroundColor:'white', border:'2px solid black', color:'white', background:'blue', height:'40px', width:'190px'}}>Descargar Tesis</Button>
+            <Button sx={{backgroundColor:'white', border:'2px solid black', color:'white', background:'blue', height:'40px', width:'190px'}}>Subir Tesis</Button>
+          </Stack>
+        </Box>
+      </Box>
+    </Box>
   );
 }
