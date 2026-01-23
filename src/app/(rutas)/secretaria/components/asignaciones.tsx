@@ -14,6 +14,7 @@ import { Profesor } from '@/types/profesor';
 import { Asignacion } from '@/types/asignacion';
 import { Estado } from '@/types/estados';
 import { useSearchParams } from 'next/navigation';
+import ContactMailIcon from '@mui/icons-material/ContactMail';
 
 function Asignaciones() {
     //Sede de la secretaria que ingresó
@@ -146,6 +147,10 @@ function Asignaciones() {
         }));
         }, [asigs, estusSede, profeSede]);
     
+
+        const profeMail = (nombre: string) => {
+            return profeSede.find(pro => pro.nombre === nombre)?.mail
+        }
     //columnas de asignaciones
     const assignmentColumns: GridColDef<filas>[] = [
         { field: 'rut', headerName: 'Rut', width: 70 },
@@ -154,19 +159,37 @@ function Asignaciones() {
         { field: 'rol', headerName: 'Rol', width: 250 }, // DataGrid column for 'rol'
         { field: 'status', headerName: 'Estado', width: 130 },
         {field: 'eliminar', headerName: 'ACCIONES', width: 300, renderCell: (params)=>(
-            <>
+            <Box display="flex" gap={1} alignItems="center">
                 <Button 
                 size='small'
                 onClick={() => eliminarFila(params.row.rut)}
                 >
                     eliminar
                 </Button>
-                <Button
-                size='small'
-                >
-                    notificar 
-                </Button>
-            </>
+                <Box  >
+                    <Button
+                    
+                    component="a"
+                    href={`mailto:${profeMail(params.row.professorName)}?subject=SE%20LE%20HA%20ASIGNADO%20UN%20ESTUDIANTE&body=Texto%20que%20debe%20ir%20acá.`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    size='small'
+                    sx={{
+                        textDecoration:'none',
+                        display:'flex',
+                        flexDirection:'column',
+                        gap:0.5,
+                        alignItems:'center'
+                    }}
+                    >
+                        Notificar Profesor
+                        <ContactMailIcon fontSize="medium"/>
+                        
+                    </Button>
+                    
+                </Box>
+                
+            </Box>
         )}
     ];
     

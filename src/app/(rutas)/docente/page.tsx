@@ -22,71 +22,48 @@ import { useEffect, useState, useMemo, use} from "react";
 import { GridColDef, GridRowsProp } from '@mui/x-data-grid';
 import { Parastoo } from "next/font/google";
 import { useCallback } from "react";
-
+import estilo from "./style.module.css";
+import GuiaContent from "./components/guia";
+import InformanteContent from "./components/informante";
 
 
 export default function CustomBottomNavigation() {
 
-  //state para sellecionar fila que se enviará al componente hijo
-  const [filaSeleccionada, setFilaSeleccionada] = useState<any>("");
-  
-  //state para las filas de la tabla de guia
-  const [filasGuia, setFilasGuia] = useState<any[]>([]);
-
-  //state para las filas de la tabla de informante
-  const [filasInformante, setFilasInformante] = useState<any[]>([]);
-
-  //state para mostrar componente hijo 
-  const [showpaginaGuia, setShowpaginaGuia] = useState(false);
-  
   //state para los diferentes valores que puede mostrar el componente padre
   const [value, setValue] = useState<'guia'|'informante'|'secretario'|'presidente'>('guia');
   
   //states para la descarga de datos desde el back
   const [asignaciones, setAsignaciones] = useState<Asignacion[]>([]);
-  const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
-  const [notas, setNotas] = useState<Notas[]>([]);
-  const [estados, setEstados] = useState<Estado[]>([]);
   
   //Correo del profesor que ingresó
   const searchParams = useSearchParams();
   const mail = searchParams.get("mail");
   
-  //importo los estudiantes, los profesores, las notas, y las asignaciones
+  //importo las asignaciones
   useEffect(() => {
     const datos_todos = async () => {
         try {
-            const [estRes, asigRes, notaRes, estaRes] = await Promise.all([
-                axios.get(`${__url}/estudiante/todos`),
-                axios.get(`${__url}/asignaciones/todas`),
-                axios.get(`${__url}/notas/todas`),
-                axios.get(`${__url}/estados/todos`)
+            const [asigRes] = await Promise.all([
+                axios.get(`${__url}/asignaciones/todas`)
             ]);
-            setEstudiantes(estRes.data);
             setAsignaciones(asigRes.data);
-            setNotas(notaRes.data);
-            setEstados(estaRes.data);
         } catch (error) {
             console.log(error);
         }
     };
     datos_todos();
 }, []);
-  
 
   //filtro las asignaciones con el profesor que ingresó, y las cuales sean con el rol 'guia'
-  const asigsGuia = useMemo(() => {
-    return asignaciones.filter(a => a.mailProfesor === mail && a.rol === 'guia');
-  }, [asignaciones, mail]);
+    const asigsGuia = useMemo(() => {
+      return asignaciones.filter(a => a.mailProfesor === mail && a.rol === 'guia');
+    }, [asignaciones, mail]);
 
   //filtro las asignaciones con el profesor que ingresó, y las cuales sean con el rol 'informante'
   const asigsInformante = useMemo(() => {
     return asignaciones.filter(a => a.mailProfesor === mail && a.rol === 'informante');
   }, [asignaciones, mail]);
-
-  const asigSecretario = asignaciones.filter(asig => asig.mailProfesor === mail).filter(asig => asig.rol === "secretario");
-  const asigPresidente = null//asignaciones.filter(asig => asig.mailProfesor === mail).filter(asig => asig.rol === "presidente");
-
+  
   //habilitar y bloquear botones
   let guiaColor: any;
   let inforColor: any;
@@ -100,85 +77,6 @@ export default function CustomBottomNavigation() {
     inforCond = false;
     inforColor = 'red';
   }
-  
-  //columnas guia
-  const columnsGuia: GridColDef[] = [
-    { field: 'rut', headerName: 'RUT', width: 90 },
-    { field: 'Estudiante', headerName: 'Estudiante', width: 200 },
-    { field: 'fecha', headerName: 'Fecha', width:90},
-    { field: 'nota', headerName: 'Nota', width:50},
-    { field: 'estado', headerName: 'Estado', width: 90},
-    { field: 'gestionamiento', headerName: 'Gestionamiento', width:300, renderCell: (params)=> <Button onClick={() => {
-      setShowpaginaGuia(true); 
-      setFilaSeleccionada(params.row); 
-    }} 
-    >
-      Gestionar Documentos y Nota
-    </Button>},
-    
-  ];
-
-  //filas guia
-  useEffect(() => {
-  if (!asigsGuia.length) {
-    setFilasGuia([]);
-    return;
-  }
-
-  const nuevasFilas = asigsGuia.map(asig => ({
-    rut: asig.id,
-    Estudiante: estudiantes.find(est => est.mail === asig.mailEstudiante)
-                  ? `${estudiantes.find(est => est.mail === asig.mailEstudiante)?.nombre} 
-                  ${estudiantes.find(est => est.mail === asig.mailEstudiante)?.apellido} 
-                  ${estudiantes.find(est => est.mail === asig.mailEstudiante)?.segundoApellido}`
-                  : '-',
-    fecha: asig.fechaAsignacion,
-    nota: notas.find(not => not.mailEstudiante === asig.mailEstudiante)?.notaGuia ?? '---',
-    estado: estados.find(est => est.mailEstudiante === asig.mailEstudiante)?.estado 
-  }));
-
-  setFilasGuia(nuevasFilas);
-}, [asigsGuia, estudiantes, notas]);
-
-
-  //columnas informante
-  const columnsInformante: GridColDef[] = [
-    { field: 'rut', headerName: 'RUT', width: 90 },
-    { field: 'Estudiante', headerName: 'Estudiante', width: 200 },
-    { field: 'fecha', headerName: 'Fecha', width:90},
-    { field: 'nota', headerName: 'Nota', width:50},
-    { field: 'estado', headerName: 'Estado', width: 90},
-    { field: 'gestionamiento', headerName: 'Gestionamiento', width:300, renderCell: (params)=> <Button onClick={() => {
-      setShowpaginaGuia(true); 
-      setFilaSeleccionada(params.row); 
-    }} 
-    >
-      Gestionar Documentos y Nota
-    </Button>},
-    
-  ];
-
-  //filas informante
-  useEffect(() => {
-  if (!asigsInformante.length) {
-    setFilasInformante([]);
-    return;
-  }
-
-  const nuevasFilas = asigsInformante.map(asig => ({
-    rut: asig.id,
-    Estudiante: estudiantes.find(est => est.mail === asig.mailEstudiante)
-                  ? `${estudiantes.find(est => est.mail === asig.mailEstudiante)?.nombre} 
-                  ${estudiantes.find(est => est.mail === asig.mailEstudiante)?.apellido} 
-                  ${estudiantes.find(est => est.mail === asig.mailEstudiante)?.segundoApellido}`
-                  : '-',
-    fecha: asig.fechaAsignacion,
-    nota: notas.find(not => not.mailEstudiante === asig.mailEstudiante)?.notaGuia ?? '---',
-    estado: estados.find(est => est.mailEstudiante === asig.mailEstudiante)?.estado
-  }));
-
-  setFilasInformante(nuevasFilas);
-}, [asigsInformante, estudiantes, notas]);
 
   //columas secretario
   const columnsSecretario: GridColDef[] = [
@@ -211,34 +109,6 @@ export default function CustomBottomNavigation() {
       { field: 'dateIssued', headerName: 'Fecha Emisión', width: 150, editable: true },
     ];
 
-    const handleGuardarNota = useCallback(
-  (notaNueva: number, estadoNuevo: string) => {
-    if (!filaSeleccionada) return;
-
-    if (value === 'guia') {
-      setFilasGuia(prev =>
-        prev.map(f =>
-          f.rut === filaSeleccionada.rut
-            ? { ...f, nota: notaNueva, estado: estadoNuevo }
-            : f
-        )
-      );
-    }
-
-    if (value === 'informante') {
-      setFilasInformante(prev =>
-        prev.map(f =>
-          f.rut === filaSeleccionada.rut
-            ? { ...f, nota: notaNueva, estado: estadoNuevo }
-            : f
-        )
-      );
-    }
-  },
-  [filaSeleccionada, value]
-);
-
-
   return (
     
     <Box sx={{ width: '100%' }}>
@@ -267,38 +137,12 @@ export default function CustomBottomNavigation() {
         
       </BottomNavigation>
       <Box>
-        {showpaginaGuia && (
-          <PageGestionamiento 
-          fila={filaSeleccionada}
-          onClose={() => setShowpaginaGuia(false)} 
-          onGuardar={handleGuardarNota}
-          estudiantes={estudiantes}
-          />
-          )}
           {value === 'guia' && (
-            <Box sx={{ p: 3, width: '100%', height: 400 }}>
-              <Typography variant='h2'>Sección Guía</Typography>
-              <Typography variant='body1' sx={{ mb: 2 }}>Aquí encontrarás información y recursos para guiarte.</Typography>
-              <DataGrid
-                rows={filasGuia}
-                columns={columnsGuia}
-                pageSizeOptions={[5, 10]}
-                getRowId= {(row) => row.rut }
-                initialState={{ pagination: { paginationModel: { pageSize: 5 } } }}
-              />
-            </Box>
+            <GuiaContent/>
           )}
           {value === 'informante' &&(
             <Box sx={{ p: 3, width: '100%', height: 400 }}>
-              <Typography variant='h2'>Sección Informante</Typography>
-              <Typography variant='body1' sx={{ mb: 2 }}>Mantente al día con las últimas novedades e informes.</Typography>
-              <DataGrid
-                rows={filasInformante}
-                columns={columnsInformante}
-                getRowId= {(row) => row.rut }
-                pageSizeOptions={[5, 10]}
-                initialState={{ pagination: { paginationModel: { pageSize: 5 } } }}
-              />
+              <InformanteContent/>
             </Box>
           )}
           {value === 'secretario' &&(
@@ -427,7 +271,7 @@ function PageGestionamiento({ onGuardar, onClose, fila, estudiantes}: PageProps)
           border:'1px solid black',
         }}>
           <h4>Nota del guía</h4>
-          <input type='text' value={nota} onChange={(e) => setNota(e.target.value)} placeholder="ejem: 6,3" style={{height:'30px',width:'100px', borderRadius:'10px', textAlign:'center'}}/>
+          <input type='text' value={nota} onChange={(e) => setNota(e.target.value)} placeholder="ejem: 6,3" className={estilo.style}/>
           <p>Ingrese un valor entre 1 y 7. <br/> 
               (Con un solo decimal).
           </p>

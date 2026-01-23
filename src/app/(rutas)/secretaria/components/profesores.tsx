@@ -1,5 +1,5 @@
 "use client";
-import { BottomNavigation, BottomNavigationAction, Box, Card, Typography, TextField, Button, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { BottomNavigation, BottomNavigationAction, Box, Card, Typography, TextField, Button, FormControl, Input, InputLabel, MenuItem } from '@mui/material';
 import Swal from 'sweetalert2';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import React, { useEffect, useState, useMemo } from 'react';
@@ -20,6 +20,9 @@ export default function Profesores(){
     //Sede de la secretaria que ingresó
     const searchParams = useSearchParams();
     const sede = searchParams.get("sede");
+    if(!sede){
+        return;
+    }
 
     const [viewValue, setViewValue] = useState<'ver' | 'crear'>('ver');
     const [profesores, setProfesores] = useState<Profesor[]>([]);
@@ -34,9 +37,12 @@ export default function Profesores(){
     }
     //molde rellenable de la asignación
     const [newProfessor, setNewProfessor] = useState<NewProfessorState>({
-        professorName: '',
+        nombre: '',
+        segundoNombre: '',
+        apellido: '',
+        segundoApellido: '',
         mail: '',
-        rol: '',
+        sede: ''
     });
     
     //importo a todos los profesores
@@ -111,9 +117,12 @@ export default function Profesores(){
         }, [asigs, profeSede]);
     
     interface NewProfessorState {
-        professorName: string;
+        nombre: string;
+        segundoNombre: string;
+        apellido: string;
+        segundoApellido: string;
         mail: string;
-        rol: string; // 'rol' is now a direct field in the state
+        sede: string;
     }
     
     //columnas de asignaciones
@@ -135,7 +144,7 @@ export default function Profesores(){
 
     //borrar fila por rut
     const eliminarFila = async (mail: string) => {
-    await axios.delete(`${__url}/asignaciones/borrar/${mail}`);
+    await axios.delete(`${__url}/profesor/borrar/${mail}`);
     setFinished(true); // fuerza recarga desde el backend
     };
     
@@ -152,23 +161,28 @@ export default function Profesores(){
 
     //envía la asignación a la db local
     const handleSubmitProfessor = async () => {
+        newProfessor.sede = sede;
         let response: any;
         // Validate required fields
-        if (!newProfessor.mail || !newProfessor.professorName || !newProfessor.rol) {
-            alert('Por favor, completa todos los campos requeridos para la asignación (Estudiante, Profesor, Rol).');
+        if (!newProfessor.mail || !newProfessor.nombre || !newProfessor.segundoNombre || !newProfessor.apellido || !newProfessor.segundoApellido) {
+            alert('Por favor, completa todos los campos requeridos');
             return;
         }
         try {
+            console.log("hi")
             response = await axios.post(
-                `${__url}/asignaciones/crear`,
+                `${__url}/profesor/crear`,
                 newProfessor
             );
             alert('Asignación generada exitosamente (simulado)!');
             // Reset form after successful (simulated) submission
             setNewProfessor({
-                professorName: '',
+                nombre: '',
+                segundoNombre: '',
+                apellido: '',
+                segundoApellido: '',
                 mail: '',
-                rol: ''
+                sede: ''
             });
             setFinished(true);
         } catch (error: any) {
@@ -219,67 +233,170 @@ export default function Profesores(){
                 {viewValue === "crear" && (
                     <Box sx={{ mt: 2, width: '100%', maxWidth: "600px", height:'100%'}}>
                         <Typography variant="body1" sx={{ mb: 2, textAlign: 'center' }}>
-                            Aquí puedes generar una nueva asignación para un estudiante.
+                            Aquí puedes agregar a los profesores nuevos.
                         </Typography>
                         <Typography variant='h5' sx={{ mb: 2, textAlign: 'center' }}>
-                            Al generar la asignación se le notificará al profesor correspondiente
+                            Al agregar a un profesor, se le permite la capacidad de ser asignado a un estudiante
                         </Typography>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 2, border: '1px solid #e0e0e0', borderRadius: 2 }}>
-                            <FormControl fullWidth required>
-                                <InputLabel id="student-select-label">Estudiante</InputLabel>
-                                <Select
-                                    labelId="student-select-label"
-                                    id="student-select"
-                                    name="mailEstudiante" // Important for handleFormChange
-                                    value={newProfessor.mail}
-                                    label="Estudiante"
-                                    onChange={handleSelectChange} // Use generic handler
-                                >
-                                    <MenuItem value=""><em>Selecciona un estudiante</em></MenuItem>
-                                    {profeSede.map(professor => (
-                                        <MenuItem key={professor.mail} value={professor.nombre}>
-                                            {professor.nombre + " " + professor.apellido + " " + professor.segundoApellido}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
+                        <Box sx={{
+                                display: 'grid',
+                                gridTemplateRows: '1fr', // una columna para label+input
+                                gap: 1,
+                                p: 2, 
+                                border: '1px solid #e0e0e0', 
+                                borderRadius: 2 }}>
+                            {/*Nombre completo del Profesor */}
+                            <Box
+                             sx={{
+                                display:'grid',
+                                gridTemplateColumns: '1fr 1fr 1fr 1fr',
+                                gap:2
+                             }}
+                            >
+                                <FormControl fullWidth  >
+                                    <InputLabel 
+                                        >
+                                            Primer Nombre
+                                    </InputLabel>
+                                    <Input id="student-select-label" 
+                                    value={newProfessor.nombre}
+                                    onChange={(e) =>
+                                        setNewProfessor({
+                                        ...newProfessor,
+                                        nombre: e.target.value,
+                                        })
+                                    }
+                                    sx={{
+                                        height:'30px',
+                                        width:'140px'
+                                    }}
+                                    />
+                                    
+                                </FormControl>
+                                <FormControl fullWidth  sx={{
+                                        display:'flex',
+                                        alignContent:'center'
+                                    }}>
+                                    <InputLabel 
+                                        >
+                                            Segundo Nombre
+                                    </InputLabel>
+                                    <Input id="student-select-label" 
+                                    value={newProfessor.segundoNombre}
+                                    onChange={(e) =>
+                                        setNewProfessor({
+                                        ...newProfessor,
+                                        segundoNombre: e.target.value,
+                                        })
+                                    }
+                                     sx={{
+                                        height:'30px',
+                                        width:'140px'
+                                    }}
+                                    />
+                                </FormControl>
+                                <FormControl fullWidth  sx={{
+                                        display:'flex',
+                                        alignContent:'center'
+                                    }}>
+                                    <InputLabel 
+                                        >
+                                            Primer Apellido
+                                    </InputLabel>
+                                    <Input id="student-select-label"
+                                     value={newProfessor.apellido}
+                                     onChange={(e) =>
+                                        setNewProfessor({
+                                        ...newProfessor,
+                                        apellido: e.target.value,
+                                        })
+                                    }
+                                    sx={{
+                                        height:'30px',
+                                        width:'140px'
+                                    }}
+                                    />
+                                </FormControl>
+                                <FormControl fullWidth  sx={{
+                                        display:'flex',
+                                        alignContent:'center'
+                                    }}>
+                                    <InputLabel 
+                                        >
+                                            Segundo Apellido
+                                    </InputLabel>
+                                    <Input id="student-select-label" 
+                                    value={newProfessor.segundoApellido}
+                                    onChange={(e) =>
+                                        setNewProfessor({
+                                        ...newProfessor,
+                                        segundoApellido: e.target.value,
+                                        })
+                                    }
+                                    sx={{
+                                        height:'30px',
+                                        width:'140px'
+                                    }}
+                                    />
+                                </FormControl>
+                            </Box>
+                            <Box
+                             sx={{
+                                display:'grid',
+                                gridTemplateColumns: '1fr 1fr',
+                                gap:3
+                             }}
+                            >
+                            <Box
+                            sx={{
+                                display:'grid',
+                                gridTemplateColumns: '1fr 2fr 1fr ',
+                                gap:3
+                             }}>
+                                <p>
+                                Sede:
+                            </p>
+                            <FormControl fullWidth  sx={{
+                                    display:'flex',
+                                    alignContent:'center'
+                                }}>
+                                
+                                <InputLabel>
+                                    {sede}
+                                </InputLabel>
+                                <Input disabled  id="student-select-label" 
+                                sx={{
+                                    height:'30px',
+                                    width:'140px'
+                                }}
+                                />
                             </FormControl>
-
-                            <FormControl fullWidth required>
-                                <InputLabel id="professor-select-label">Profesor</InputLabel>
-                                <Select
-                                    labelId="professor-select-label"
-                                    id="professor-select"
-                                    name="mailProfesor" // Important for handleFormChange
-                                    value={newProfessor.mail}
-                                    label="Profesor"
-                                    onChange={handleSelectChange} // Use generic handler
+                            </Box>
+                            
+                            <FormControl fullWidth  sx={{
+                                display:'flex',
+                                alignContent:'center'
+                            }}>
+                            <InputLabel 
                                 >
-                                    <MenuItem value=""><em>Selecciona un profesor</em></MenuItem>
-                                    {profeSede.map(professor => (
-                                        <MenuItem key={professor.nombre} value={professor.mail}>
-                                            {professor.nombre}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
+                                    Correo Profesor
+                            </InputLabel>
+                            <Input id="student-select-label" 
+                            value={newProfessor.mail}
+                            onChange={(e) =>
+                                        setNewProfessor({
+                                        ...newProfessor,
+                                        mail: e.target.value,
+                                        })
+                                    }
+                            sx={{
+                                height:'30px',
+                                width:'140px'
+                            }}
+                            />
                             </FormControl>
-
-                            <FormControl fullWidth required> {/* Wrap rol Select in FormControl */}
-                                <InputLabel id="rol-select-label">Rol</InputLabel> {/* New InputLabel for Rol */}
-                                <Select
-                                    labelId="rol-select-label"
-                                    id="rol-select"
-                                    name="rol" // Important: Set the name to "rol"
-                                    value={newProfessor.rol}
-                                    label="Rol" // Label for the Select component
-                                    onChange={handleSelectChange} // Use the generic handler
-                                >
-                                    <MenuItem value=""><em>Selecciona un rol</em></MenuItem>
-                                    <MenuItem value="guia">Guía</MenuItem>
-                                    <MenuItem value="informante">Informante</MenuItem>
-                                    <MenuItem value="secretario">Secretario</MenuItem>
-                                    <MenuItem value="presidente">Presidente</MenuItem>
-                                </Select>
-                            </FormControl>
+                            </Box>
+                            
 
                             <Button
                                 variant="contained"
@@ -288,7 +405,7 @@ export default function Profesores(){
                                 onClick={handleSubmitProfessor}
                                 sx={{ mt: 2 }}
                             >
-                                Generar Asignación
+                                Agregar Profesor
                             </Button>
                         </Box>
                     </Box>

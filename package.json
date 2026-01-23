@@ -18,11 +18,13 @@
     "@mui/material-nextjs": "^7.2.0",
     "@mui/x-data-grid": "^8.24.0",
     "axios": "^1.10.0",
+    "fs": "0.0.1-security",
     "install": "^0.13.0",
     "jwt-decode": "^4.0.0",
     "next": "^15.3.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-router-dom": "^7.12.0",
     "sweetalert2": "^11.26.17",
     "xlsx": "^0.18.5"
   },

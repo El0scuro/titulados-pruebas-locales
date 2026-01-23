@@ -29,13 +29,13 @@ export default function LoginPage(){
                         Universidad de Valparaíso. Blanco 951, Valparaíso, Chile. Fono: +56 (32) 250 7000.
                     </p>
                     <div className={Estilo_login.redes}>
-                        <IconButton color="primary" component="a" href="https://www.instagram.com/administracionpublicauv/">
-                            <InstagramIcon/>
+                        <IconButton color="secondary" component="a" href="https://www.instagram.com/administracionpublicauv/">
+                            <InstagramIcon  />
                         </IconButton>
-                        <IconButton color="primary" component="a" href="https://www.facebook.com/admpublicauv">
+                        <IconButton color="secondary" component="a" href="https://www.facebook.com/admpublicauv">
                             <FacebookIcon />
                         </IconButton>
-                        <IconButton color="primary" component="a" href="https://www.linkedin.com/in/administraci%C3%B3n-p%C3%BAblica-universidad-de-valpara%C3%ADso-b785a4b4/">
+                        <IconButton color="secondary" component="a" href="https://www.linkedin.com/in/administraci%C3%B3n-p%C3%BAblica-universidad-de-valpara%C3%ADso-b785a4b4/">
                             <LinkedinIcon />
                         </IconButton>
                     </div>

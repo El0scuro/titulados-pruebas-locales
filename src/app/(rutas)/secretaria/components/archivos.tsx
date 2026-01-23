@@ -409,7 +409,7 @@ function Archivos() {
 
                     a = document.createElement("a");
                     a.href = url;
-                    a.download = partMail + "-Formulario_Inscripcion_Seminario_de_Titulo.docx";
+                    a.download = partMail + "-Rúbrica_Tesis";
 
                     document.body.appendChild(a);
                     a.click();
