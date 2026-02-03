@@ -154,79 +154,8 @@ function Asignaciones() {
     
 
         const profeMail = (nombre: string) => {
-
-            if(!nombre){
-                return;
-            }
-            const name = nombre.split(" ");
-            const profe = profeSede.find(pro => pro.nombre === name[0])?.mail
-            return profe;
+            return profeSede.find(pro => pro.nombre === nombre)?.mail
         }
-        const estuMail = (nombre: string) => {
-            if(!nombre){
-                return;
-            }
-            const name = nombre.split(" ");
-            return estusSede.find(est => est.nombre === name[0])?.mail
-        }
-    const enviarCorreo = async(parametros: any) => {
-        const mailEstu = estuMail(parametros.studentName);
-        if(!mailEstu){
-            return;
-        }
-        const partMail = mailEstu.replace(/[^a-zA-Z0-9]/g, '_');
-        let rutas: string[] = [];
-        let archivos: string[] = [];
-        let text: any;
-        const mailProfe = profeMail(parametros.professorName);
-        if(!mailProfe){
-            return;
-        }
-        switch(parametros.rol){
-            case 'guia':
-                rutas.push(`archivos_guia`);
-                archivos.push(`Rubrica_Guia.docx`);
-                rutas.push('fichas_inscripcion');
-                archivos.push(`${partMail}-Formulario_Inscripcion_Seminario_de_Titulo.docx`);
-                text = `
-                    Estimada(o) académica(o) ${parametros.professorName}<br><br> 
-                    Se le recuerda que se le ha sido asignado a cargo de la tesis de ${parametros.studentName} con rol de ${parametros.rol}.<br><br>
-                    Se adjunta Ficha del estudiante, y la plantilla de la Rúbrica.<br><br>
-                    No responder a este correo.
-                    `
-
-                await axios.post(`${__url}/mail/enviar_adjunto`, {
-                    toMail: `${mailProfe}`,
-                    subject: `Asignación Profesor(a)  ${newAssignment.rol}`,
-                    text,
-                    rutas,
-                    archivos
-                });
-                console.log("aaaa")
-                break;
-            case 'informante':
-                rutas.push(`archivos_Tesis`);
-                archivos.push(`${partMail}-documento_tesis.docx`);
-                rutas.push('fichas_inscripcion');
-                archivos.push(`${partMail}-Formulario_Inscripcion_Seminario_de_Titulo.docx`);
-                text = `
-                    Estimada(o) académica(o) ${parametros.professorName}<br><br> 
-                    Se le recuerda que se le ha sido asignado a cargo de la tesis de ${parametros.studentName} con rol de ${parametros.rol}.<br><br>
-                    Se adjunta Ficha y la Tesis del estudiante.<br><br>
-                    Se le recuerda que la plantilla de la Rúbrica del rol Informante, se puede descargar desde el acceso de académicos<br><br>
-                    No responder a este correo.
-                    `
-
-                await axios.post(`${__url}/mail/enviar_adjunto`, {
-                    toMail: `${newAssignment.mailProfesor}`,
-                    subject: `Asignación Profesor(a)  ${newAssignment.rol}`,
-                    text,
-                    rutas,
-                    archivos
-                });
-                break;
-        }
-    }    
     //columnas de asignaciones
     const assignmentColumns: GridColDef<filas>[] = [
         { field: 'rut', headerName: 'Rut', width: 70 },
@@ -244,16 +173,20 @@ function Asignaciones() {
                 </Button>
                 <Box  >
                     <Button
-                    onClick={() => enviarCorreo(params.row)}
+                    
+                    component="a"
+                    
                     size='small'
                     sx={{
                         textDecoration:'none',
                         display:'flex',
-                        alignItems:'center',
-                        justifyContent:'center'
+                        flexDirection:'column',
+                        gap:0.5,
+                        alignItems:'center'
                     }}
                     >
                         Notificar Profesor
+                        <ContactMailIcon fontSize="medium"/>
                         
                     </Button>
                     
@@ -319,14 +252,6 @@ function Asignaciones() {
                         Se adjunta Ficha del estudiante, y la plantilla de la Rúbrica.<br><br>
                         No responder a este correo.
                       `
-
-                    await axios.post(`${__url}/mail/enviar_adjunto`, {
-                        toMail: `${newAssignment.mailProfesor}`,
-                        subject: `Asignación Profesor(a)  ${newAssignment.rol}`,
-                        text,
-                        rutas,
-                        archivos
-                    });
                     break;
                 case 'informante':
                     rutas.push(`archivos_Tesis`);
@@ -340,18 +265,16 @@ function Asignaciones() {
                         Se le recuerda que la plantilla de la Rúbrica del rol Informante, se puede descargar desde el acceso de académicos<br><br>
                         No responder a este correo.
                       `
-
-                    await axios.post(`${__url}/mail/enviar_adjunto`, {
-                        toMail: `${newAssignment.mailProfesor}`,
-                        subject: `Asignación Profesor(a)  ${newAssignment.rol}`,
-                        text,
-                        rutas,
-                        archivos
-                    });
                     break;
             }
             console.log(rutas, " ", archivos)
-            
+            await axios.post(`${__url}/mail/enviar_adjunto`, {
+                toMail: `${newAssignment.mailProfesor}`,
+                subject: `Asignación Profesor(a)  ${newAssignment.rol}`,
+                text,
+                rutas,
+                archivos
+            });
             // Reset form after successful (simulated) submission
             setNewAssignment({
                 id: '',

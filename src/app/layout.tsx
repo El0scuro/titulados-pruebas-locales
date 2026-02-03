@@ -1,51 +1,22 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+'use client';
+
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v13-appRouter';
 import { StyledRoot } from './StyledRoot';
 import theme from './theme'
 import { ThemeProvider } from "@mui/material/styles";
-import { auth0 } from "../lib/auth0"
 import { TokenProvider } from './context/TokenContext';
-import Login from "./(rutas)/login/page";
 import './globals.css';
 
 
-const inter = Inter({ subsets: ["latin"] });
-
-export const metadata: Metadata = {
-  title: "Sistema de seguimientos académicos uv",
-  description: "Página de inicio",
-};
-
-export default async function RootLayout({
+export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
-
-  const session = await auth0.getSession();
-
-  if (!session) {
-    return (
-      <html lang="en">
-        <body>
-          <AppRouterCacheProvider>
-            <ThemeProvider theme={theme}>
-              <Login />
-            </ThemeProvider>
-          </AppRouterCacheProvider>
-        </body>
-      </html>
-    )
-  }
-
-  if (session) {
-  
-
-    return (
-      <html lang="en">
-        <body>
-          <AppRouterCacheProvider>
+}) {
+  return (
+    <html lang="es">
+      <body>
+        <AppRouterCacheProvider>
             <ThemeProvider theme={theme}>
               <StyledRoot>
                 <TokenProvider>
@@ -54,11 +25,7 @@ export default async function RootLayout({
               </StyledRoot>
             </ThemeProvider>
           </AppRouterCacheProvider>
-
-        </body>
-      </html>
-
-    )
-  }
+      </body>
+    </html>
+  );
 }
-

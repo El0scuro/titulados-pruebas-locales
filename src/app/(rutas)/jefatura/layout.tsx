@@ -1,61 +1,32 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+'use client';
 
-import { AppRouterCacheProvider } from '@mui/material-nextjs/v13-appRouter';
-import { StyledRoot } from '../../StyledRoot';
-import theme from '../../theme'
-import { ThemeProvider } from "@mui/material/styles";
-import { auth0 } from "../../../lib/auth0"
-import { TokenProvider } from '../../context/TokenContext';
-import Login from "../login/page";
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAccessToken } from '../../context/TokenContext';
+import { useUser } from '@auth0/nextjs-auth0';
 
-const inter = Inter({ subsets: ["latin"] });
-
-export const metadata: Metadata = {
-  title: "Documentos y concentimiento estudiante",
-  description: "Documentos y concentimiento para el estudiante",
-  keywords: "estudiante, documentos, concentimiento, fotos, carnet",
-};
-
-export default async function RootLayout({
+export default function DocenteLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
+  const router = useRouter();
+  const token = useAccessToken();
+  const { user, isLoading } = useUser();
+  const [authorized, setAuthorized] = useState(false);
 
-  const session = await auth0.getSession()
+  useEffect(() => {
+    if (isLoading) return;
 
+    //No logueado
+    if (!token || !user) {
+      router.replace('../../login');
+      return;
+    }
+    setAuthorized(true)
+  }, [token, user, isLoading, router]);
 
-  if (!session) {
-    return (
-      <html lang="en">
-       
-          <AppRouterCacheProvider>
-            <ThemeProvider theme={theme}>
-              <Login />
-            </ThemeProvider>
-          </AppRouterCacheProvider>
-        
-      </html>
-    )
-  }
+  if (isLoading || !authorized) return null; // o loading spinner
 
-  if (session) {
-    return (
-        <main className={inter.className}>
-          <AppRouterCacheProvider>
-            <ThemeProvider theme={theme}>
-              <StyledRoot>
-                <TokenProvider>
-                  {children}
-                </TokenProvider>
-              </StyledRoot>
-            </ThemeProvider>
-          </AppRouterCacheProvider>
-
-        </main>
-
-    )
-  }
+  return <>{children}</>;
 }
-

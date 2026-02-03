@@ -9,11 +9,14 @@ interface SingleFileUploadButtonProps {
     buttonText?: string;
     acceptedFileTypes?: string;
     onReset?: () => void; 
+    disabled?: boolean;
 }
 
 
 export default function SingleFileUploadButton({
     onFileSelect,
+    disabled,
+    onReset,
     buttonText = 'Subir Archivo',
     acceptedFileTypes = '*',
 }: SingleFileUploadButtonProps) {
@@ -48,6 +51,7 @@ export default function SingleFileUploadButton({
             fileInputRef.current.value = '';
         }
         onFileSelect(null);
+        onReset?.();
     };
 
     return (
@@ -59,12 +63,13 @@ export default function SingleFileUploadButton({
                 sx={{ display: 'none' }}
                 inputProps={{ accept: acceptedFileTypes }}
             />
-
+            
             <Button
                 variant="contained"
                 component="span"
                 startIcon={<CloudUploadIcon />}
                 onClick={handleButtonClick}
+                disabled={disabled}
                 sx={{
                     borderRadius: '8px',
                     padding: '10px 20px',

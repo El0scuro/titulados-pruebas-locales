@@ -2,7 +2,7 @@
 import React, { useEffect, useState} from "react";
 import { Box, Button, Card, Grid, Paper, Typography } from "@mui/material";
 import __url from "../../../lib/const"; // Assuming this path is correct for your project
-import { useAccessToken } from '../../context/TokenContext'; // Assuming this path is correct
+import { useAccessToken } from "@/app/context/TokenContext"; // Assuming this path is correct
 import { useUser } from "@auth0/nextjs-auth0";
 import Alerta from "../../components/alerta/alert";
 import Cargando from "../../components/loading/page";

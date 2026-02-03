@@ -5,4 +5,5 @@ export interface Notas {
   notaInformante: number | null;
   notaTesis: number | null;
   notaFinal: number | null;
+  notaExamenOral: number | null;
 }

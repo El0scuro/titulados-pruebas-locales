@@ -15,7 +15,7 @@ export default async function handleLogin(token: string, router: AppRouterInstan
      
 
       // Redirect based on the user's role
-      let lista: string[] = ["docente", "estudiante", "jefatura", "secretaria"];
+      let lista: string[] = ["docente", "estudiante", "jefatura", "secretaria", "administrador"];
       for (let i = 0; i < lista.length; i++) {
         if (response.data?.user === lista[i]) {
         router.push(`/${lista[i]}?rol=${lista[i]}&mail=${response.data?.mail}&sede=${response.data?.sede}`); // Redirect to rol dashboard

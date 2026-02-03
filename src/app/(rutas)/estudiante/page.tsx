@@ -1,26 +1,82 @@
 'use client';
-import React from 'react'
 import axios from "axios";
 import LogoutIcon from "@mui/icons-material/Logout";
 import Swal from "sweetalert2";
 import { Box, Dialog, DialogActions, 
         DialogContent, DialogContentText,
-        DialogTitle, Button, Typography} from '@mui/material'
+        DialogTitle, Button, Typography,
+        TextField,
+        Input} from '@mui/material'
 import estilo from "./style.module.css";
 import { useSearchParams } from "next/navigation";
 import __url from "../../../lib/const";
-import { useUser } from '@auth0/nextjs-auth0';
+import { useUser} from '@auth0/nextjs-auth0';
+import { useEffect, useMemo, useState} from 'react';
+import { Estudiante } from "@/types/estudiante";
+import { Secretario } from "@/types/secretario";
+import { Jefatura } from "@/types/jefatura";
 
 function Page() {
   const searchParams = useSearchParams();
   const mail = searchParams.get("mail");
+  const sede = searchParams.get("sede")
   if(!mail){
     return;
   }
   
   const {user,isLoading} = useUser();
-  const [open, setOpen] = React.useState(false);
-  const [open2, setOpen2] = React.useState(false);
+  const [open, setOpen] = useState(false);
+  const [open2, setOpen2] = useState(false);
+  const [personal, setPersonal] = useState("")
+  const [estudiante, setEstudiante] = useState<Estudiante>();
+  const [secretarios, setSecretaria] = useState<Secretario[]>([]);
+  const [jefaturas, setJefatura] = useState<Jefatura[]>([]);
+  //importo los estudiantes, secretari@s y jefatura
+    useEffect(() => {
+    const datosImport = async () => {
+        try {
+            const [estuRes, secRes, jefRes] = await Promise.all([
+              axios.get(`${__url}/estudiante/${mail}`),
+              axios.get(`${__url}/jefatura/todas`),
+              axios.get(`${__url}/secretario/todos`),
+            ]);
+            setEstudiante(estuRes.data);
+            setSecretaria(secRes.data);
+            setJefatura(jefRes.data);
+        } catch (error) {
+            console.log(error);
+        }
+    };
+    datosImport();
+  }, []);
+
+  const secresSede = useMemo(() => {
+      return secretarios.filter(sec => sec.sede === sede);
+  }, [secretarios, sede]);
+    
+  const jefasSede = useMemo(() => {
+    return jefaturas.filter(jef => jef.sede === sede);
+  }, [jefaturas, sede]);
+  
+  const remitentes = useMemo(() => {
+    const correos: any[] = [];
+
+    for(let i = 0; i < secresSede.length; i++){
+    correos.push(secresSede[i]);
+    }
+    
+    for(let i = 0; i < jefasSede.length; i++){
+      correos.push(jefasSede[i]);
+    }
+
+    return correos;
+  }, [secresSede, jefasSede]);
+
+  if(!estudiante){
+    return null;
+  }
+  const visible = !estudiante?.mailPersonal;
+  
   const handleClose = () => {
   setOpen(false);
   };
@@ -68,6 +124,13 @@ function Page() {
         "Su ficha ha sido subida correctamente",
         "success"
       );
+      for(let i = 0; i < remitentes.length; i++){
+        await axios.post(`${__url}/mail/enviar`, {
+                  toMail: `${remitentes[i].mail}`,
+                  subject: `Documento subido`,
+                  text: `El estudiante ${estudiante.nombre} ${estudiante.apellido} ${estudiante.segundoApellido}, subió su ficha de inscripción`
+        });
+      }
     } catch (err:any) {
       console.log(
         "Error al subir el archivo:",
@@ -113,8 +176,30 @@ function Page() {
   if(isLoading){
     return cargando;
   }
+
+  const enviarPersonal = async() => {
+    if (!personal || personal.trim() === "") {
+    Swal.fire("Error", "Por favor, llene el campo", "error")
+    return;
+}
+    try{
+      const response = await axios.patch(`${__url}/estudiante/actualizar/${estudiante.rut}`,{
+        mail: estudiante.mail,
+        nombre: estudiante.nombre,
+        apellido: estudiante.apellido,
+        rut: estudiante.rut,
+        mailPersonal: personal
+      })
+    Swal.fire("Completado", "Su correo se ha guardado correctamente, muchas gracias", "success");
+      
+    }catch(error){
+      console.log(error)
+    }
+  };
   return (
       <>
+        
+        
         <Button
           href="/auth/logout"
           variant="contained"
@@ -237,6 +322,39 @@ function Page() {
                   <Button onClick={handleClose2}>Cerrar</Button>
               </DialogActions>
           </Dialog>
+          {visible && (
+            <Box
+            sx={{
+              background:'white',
+              height:'110px',
+              width:'220px',
+              position:'absolute',
+              top:'50px',
+              left:'50px',
+              border:1,
+              borderRadius:'10px',
+              display:'flex',
+              flexDirection:'column',
+              justifyContent:'center',
+              alignItems:'center',
+            }}
+            >
+              <h5> 
+                ingrese su correo personal
+              </h5>
+              <Input
+              value={personal}
+              onChange={(e) => setPersonal(e.target.value)}
+              placeholder="Correo personal"
+              />
+              <Button 
+              onClick={enviarPersonal}
+              >
+                enviar
+              </Button>
+              
+            </Box>
+          )}
         </Box>
       </>
   )

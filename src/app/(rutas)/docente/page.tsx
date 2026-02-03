@@ -1,6 +1,6 @@
 "use client";
 import LogoutIcon from "@mui/icons-material/Logout";
-import {Button, Color, Stack} from "@mui/material";
+import {Button, Stack} from "@mui/material";
 import * as React from 'react';
 import Box from '@mui/material/Box';
 import BottomNavigation from '@mui/material/BottomNavigation';
@@ -10,21 +10,20 @@ import InfoIcon from '@mui/icons-material/Info';
 import DescriptionIcon from '@mui/icons-material/Description';
 import GavelIcon from '@mui/icons-material/Gavel';
 import { Typography } from '@mui/material';
-import { DataGrid } from "@mui/x-data-grid";
 import { Asignacion } from '@/types/asignacion';
-import axios, { isCancel } from 'axios';
+import axios from 'axios';
 import __url from '@/lib/const';
 import { Estudiante } from "@/types/estudiante";
-import { Estado } from "@/types/estados"; 
-import { Notas } from "@/types/notas";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState, useMemo, use} from "react";
+import { useEffect, useState, useMemo} from "react";
 import { GridColDef, GridRowsProp } from '@mui/x-data-grid';
-import { Parastoo } from "next/font/google";
-import { useCallback } from "react";
 import estilo from "./style.module.css";
 import GuiaContent from "./components/guia";
 import InformanteContent from "./components/informante";
+import PresidenteContent from "./components/presidente";
+import SecretarioContent from "./components/secretario";
+import { Secretario } from "@/types/secretario";
+import { Jefatura } from "@/types/jefatura";
 
 
 export default function CustomBottomNavigation() {
@@ -34,25 +33,31 @@ export default function CustomBottomNavigation() {
   
   //states para la descarga de datos desde el back
   const [asignaciones, setAsignaciones] = useState<Asignacion[]>([]);
-  
+  const [secretaria, setSecretaria] = useState<Secretario[]>([]);
+  const [jefatura, setJefatura] = useState<Jefatura[]>([]);
   //Correo del profesor que ingresó
   const searchParams = useSearchParams();
   const mail = searchParams.get("mail");
-  
+  const sede = searchParams.get("sede");
   //importo las asignaciones
   useEffect(() => {
     const datos_todos = async () => {
         try {
-            const [asigRes] = await Promise.all([
-                axios.get(`${__url}/asignaciones/todas`)
+            const [asigRes, secreRes, jefaRes] = await Promise.all([
+                axios.get(`${__url}/asignaciones/todas`),
+                axios.get(`${__url}/jefatura/todas`),
+                axios.get(`${__url}/secretario/todos`),
             ]);
             setAsignaciones(asigRes.data);
+            setSecretaria(secreRes.data);
+            setJefatura(jefaRes.data);
         } catch (error) {
             console.log(error);
         }
     };
     datos_todos();
 }, []);
+
 
   //filtro las asignaciones con el profesor que ingresó, y las cuales sean con el rol 'guia'
     const asigsGuia = useMemo(() => {
@@ -64,11 +69,23 @@ export default function CustomBottomNavigation() {
     return asignaciones.filter(a => a.mailProfesor === mail && a.rol === 'informante');
   }, [asignaciones, mail]);
   
+  const asigsSecretaria = useMemo(() => {
+    return asignaciones.filter(a => a.mailProfesor === mail && a.rol === 'secretaria' );
+  }, [asignaciones, mail]);
+
+  const asigsPresidente = useMemo(() => {
+    return asignaciones.filter(a => a.mailProfesor === mail && a.rol === 'presidente');
+  }, [asignaciones, mail]);
+ 
   //habilitar y bloquear botones
   let guiaColor: any;
   let inforColor: any;
+  let secreColor: any;
+  let presiColor: any;
   let guiaCond = true;
   let inforCond = true;
+  let secreCond = true;
+  let presiCond = true;
   if(asigsGuia.length === 0){
     guiaCond = false;
     guiaColor = 'red';
@@ -77,7 +94,14 @@ export default function CustomBottomNavigation() {
     inforCond = false;
     inforColor = 'red';
   }
-
+  if(asigsSecretaria.length === 0){
+    secreCond = false;
+    secreColor = 'red';
+  }
+  if(asigsPresidente.length === 0){
+    presiCond = false;
+    presiColor = 'red';
+  }
   //columas secretario
   const columnsSecretario: GridColDef[] = [
       { field: 'id', headerName: 'ID', width: 90 },
@@ -111,7 +135,7 @@ export default function CustomBottomNavigation() {
 
   return (
     
-    <Box sx={{ width: '100%' }}>
+    <Box sx={{ width: '100%'}}>
       <Button
           href="/auth/logout"
           variant="contained"
@@ -134,189 +158,40 @@ export default function CustomBottomNavigation() {
       >
         <BottomNavigationAction disabled={guiaCond === false} label="Guía" value='guia' sx={{color: guiaColor}} icon={<SchoolIcon />}/>
         <BottomNavigationAction disabled={inforCond === false} label="Informante" value='informante' sx={{color: inforColor}} icon={<InfoIcon />} />
-        
+        <BottomNavigationAction disabled={secreCond === false} label="Secretario" value='secretaria' sx={{color: secreColor}} icon={<DescriptionIcon />} />
+        <BottomNavigationAction disabled={presiCond === false} label="Presidente" value='presidente' sx={{color: presiColor}} icon={<GavelIcon />} />
       </BottomNavigation>
       <Box>
           {value === 'guia' && (
-            <GuiaContent/>
+            <GuiaContent 
+            sede={sede}
+            secretarios={secretaria}
+            jefaturas={jefatura}
+            mailProfe={mail}
+            />
           )}
           {value === 'informante' &&(
             <Box sx={{ p: 3, width: '100%', height: 400 }}>
-              <InformanteContent/>
+              <InformanteContent
+              sede={sede}
+              secretarios={secretaria}
+              jefaturas={jefatura}
+              mailProfe={mail}
+              />
             </Box>
           )}
           {value === 'secretario' &&(
             <Box sx={{ p: 3, width: '100%', height: 400 }}>
-              <Typography variant='h2'>Sección Secretario</Typography>
-              <Typography variant='body1' sx={{ mb: 2 }}>Gestiona documentos, actas y comunicaciones.</Typography>
-              <DataGrid
-                rows={rowsSecretario}
-                columns={columnsSecretario}
-                pageSizeOptions={[5, 10]}
-                initialState={{ pagination: { paginationModel: { pageSize: 5 } } }}
-              />
+              <SecretarioContent/>
             </Box>
           )}
           {value === 'presidente' &&(
             <Box sx={{ p: 3, width: '100%', height: 400 }}> {/* Ensure height is set for DataGrid */}
-            <Typography variant='h2'>Sección Presidente</Typography>
-            <Typography variant='body1'>Administra las decisiones y la dirección general.</Typography>
-            <DataGrid
-                rows={presidenteRows}
-                columns={presidenteColumns}
-                pageSizeOptions={[5, 10, 20]}
-                initialState={{
-                    pagination: {
-                        paginationModel: { pageSize: 5 }
-                    }
-                }}
-                checkboxSelection
-                disableRowSelectionOnClick
-            />
+            <PresidenteContent rows={presidenteRows} columns={presidenteColumns}/>
         </Box>
           )}
       </Box>
     </Box>
     
-  );
-}
-type PageProps ={
-  fila: any;
-  estudiantes: Estudiante[];
-  onGuardar: (notaNueva: number, estado:string) => void;
-  onClose: () => void;
-}
-function PageGestionamiento({ onGuardar, onClose, fila, estudiantes}: PageProps){
-  const [nota, setNota] = useState("");
-  const mailEstudiante = estudiantes.find(est => est.rut === fila.rut)?.mail ?? null;
-  const guardar = async (nota: string) => {
-  try {
-    const valor = Number(nota);
-    let estadoNuevo: string;
-
-    await axios.patch(`${__url}/notas/actualizar`, {
-      mailEstudiante,
-      tipoNota: "notaGuia",
-      valor
-    });
-
-    if (valor >= 4) {
-      estadoNuevo = "aceptado";
-      await axios.patch(`${__url}/estados/actualizar`, {
-        mailEstudiante,
-        estado: estadoNuevo
-      });
-    } else {
-      estadoNuevo = "rechazado";
-      await axios.patch(`${__url}/estados/actualizar`, {
-        mailEstudiante,
-        estado: estadoNuevo
-      });
-    }
-
-    
-    onGuardar(valor, estadoNuevo);
-
-  } catch (error) {
-    console.error(error);
-    alert("Error al guardar la nota");
-  }
-};
-
-
-  return(
-    <Box sx={{
-      backgroundColor:'white', 
-      position:'absolute', 
-      zIndex: 1000, 
-      top:"200px",
-      left:"700px",
-      height:"300px",
-      width:"450px",
-      borderRadius:'2px'
-    }}>
-      {/*Fila uno*/}
-      <Box sx={{display:'flex', flexDirection:'row', }}>
-        <Box sx={{backgroundColor: 'white', 
-          display:'flex', 
-          justifyContent:'center', 
-          alignItems:'center', 
-          width:'225px', 
-          height:'50px',
-          border:'1px solid black',}}
-        >
-          <h3>Gestión de Documentos</h3>
-        </Box>
-        <Box sx={{backgroundColor: 'white', 
-          display:'flex', 
-          justifyContent:'center', 
-          alignItems:'center', 
-          width:'225px', 
-          height:'50px',
-          border:'1px solid black',}}
-        >
-          <h3>Gestión Nota</h3>
-        </Box>
-      </Box>
-      {/*Fila dos*/}
-      <Box sx={{display:'flex', flexDirection:'row'}}>
-        <Box sx={{
-          display:'flex',
-          flexDirection:'column',
-          justifyContent:'center',
-          alignItems:'center',
-          width:'225px',
-          height:'250px',
-          textAlign:'center',
-          border:'1px solid black',
-        }}>
-          <h4>Nota del guía</h4>
-          <input type='text' value={nota} onChange={(e) => setNota(e.target.value)} placeholder="ejem: 6,3" className={estilo.style}/>
-          <p>Ingrese un valor entre 1 y 7. <br/> 
-              (Con un solo decimal).
-          </p>
-          <Box sx={{
-            display:'flex',
-            flexDirection:'row'}}>
-              <Stack spacing='30px' direction='row'>
-                <Button 
-                onClick={() => guardar(nota)} 
-                sx={{ 
-                  color:'white', 
-                  background:'blue'}}
-                >
-                  GUARDAR
-                </Button>
-                <Button 
-                onClick={() => {onClose();}} 
-                sx={{ 
-                  color:'white', 
-                  background:'red'}}
-                >
-                  CERRAR
-                </Button>
-              </Stack>
-            
-          </Box>
-        
-        </Box>
-        <Box sx={{
-          display:'flex',
-          flexDirection:'column',
-          justifyContent:'center',
-          alignItems:'center',
-          width:'225px',
-          height:'250px',
-          border:'1px solid black',
-          }}>
-          <Stack spacing='8px'>
-            <Button sx={{backgroundColor:'white', border:'2px solid black', color:'white', background:'blue', height:'40px', width:'190px'}}>Descargar Rúbrica</Button>
-            <Button sx={{backgroundColor:'white', border:'2px solid black', color:'white', background:'blue', height:'40px', width:'190px'}}>Subir Rúbrica</Button>
-            <Button sx={{backgroundColor:'white', border:'2px solid black', color:'white', background:'blue', height:'40px', width:'190px'}}>Descargar Tesis</Button>
-            <Button sx={{backgroundColor:'white', border:'2px solid black', color:'white', background:'blue', height:'40px', width:'190px'}}>Subir Tesis</Button>
-          </Stack>
-        </Box>
-      </Box>
-    </Box>
   );
 }

@@ -1,5 +1,6 @@
+"use client";
 import React from 'react'
-import {Box, Button, Stack} from '@mui/material';
+import {Box, Button, Stack, TextField} from '@mui/material';
 import { Typography } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import { GridColDef, GridRowsProp } from '@mui/x-data-grid';
@@ -7,19 +8,28 @@ import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Estudiante } from '@/types/estudiante'; 
 import { Asignacion } from '@/types/asignacion';
-import { Profesor } from '@/types/profesor';
 import  axios from 'axios';
 import __url from '@/lib/const';
 import { Notas } from '@/types/notas';
 import { useCallback } from "react";
-import estilo from "../style.module.css"
-function InformanteContent() {
+import SingleFileUploadButton from "@/app/components/singleFileButton";
+import SendIcon from '@mui/icons-material/Send';
+import Swal from 'sweetalert2';
+import { Secretario } from '@/types/secretario';
+import { Jefatura } from '@/types/jefatura';
+
+interface InformanteContentProps {
+  sede: any;
+  secretarios: Secretario[];
+  jefaturas: Jefatura[];
+  mailProfe: any;
+}
+function InformanteContent({ sede, secretarios, jefaturas, mailProfe }: InformanteContentProps) {
+  
   //state para sellecionar fila que se enviará al componente hijo
   const [filaSeleccionada, setFilaSeleccionada] = useState<any>("");
-  
   //state para las filas de la tabla de informante
   const [filasInformante, setFilasInformante] = useState<any[]>([]);
-
   //state para mostrar componente hijo 
   const [showpaginaGuia, setShowpaginaGuia] = useState(false);
   
@@ -56,7 +66,29 @@ function InformanteContent() {
     return asignaciones.filter(a => a.mailProfesor === mail && a.rol === 'informante');
   }, [asignaciones, mail]);
 
-//columnas informante
+  const secresSede = useMemo(() => {
+    return secretarios.filter(sec => sec.sede === sede);
+  }, [secretarios, sede])
+  
+  const jefasSede = useMemo(() => {
+    return jefaturas.filter(jef => jef.sede === sede);
+  }, [jefaturas, sede])
+  
+  const remitentes = useMemo(() => {
+    const correos: any[] = [];
+
+    for(let i = 0; i < secresSede.length; i++){
+    correos.push(secresSede[i]);
+    }
+    
+    for(let i = 0; i < jefasSede.length; i++){
+      correos.push(jefasSede[i]);
+    }
+
+    return correos;
+  }, [secresSede, jefasSede])
+
+  //columnas informante
   const columnsInformante: GridColDef[] = [
     { field: 'rut', headerName: 'RUT', width: 90 },
     { field: 'Estudiante', headerName: 'Estudiante', width: 200 },
@@ -94,20 +126,20 @@ function InformanteContent() {
   setFilasInformante(nuevasFilas);
 }, [asigsInformante, estudiantes, notas]);
   
-const handleGuardarNota = useCallback(
-  (notaNueva: number) => {
-    if (!filaSeleccionada) return;
-      setFilasInformante(prev =>
-        prev.map(f =>
-          f.rut === filaSeleccionada.rut
-            ? { ...f, nota: notaNueva}
-            : f
-        )
-      );
-    
-  },
-  [filaSeleccionada]
-);
+  const handleGuardarNota = useCallback(
+    (notaNueva: number) => {
+      if (!filaSeleccionada) return;
+        setFilasInformante(prev =>
+          prev.map(f =>
+            f.rut === filaSeleccionada.rut
+              ? { ...f, nota: notaNueva}
+              : f
+          )
+        );
+      
+    },
+    [filaSeleccionada]
+  );
   return (
     <Box sx={{ p: 3, width: '100%', height: 400 }}>
       <Typography variant='h2'>Sección Informante</Typography>
@@ -118,6 +150,8 @@ const handleGuardarNota = useCallback(
         onClose={() => setShowpaginaGuia(false)} 
         onGuardar={handleGuardarNota}
         estudiantes={estudiantes}
+        correos={remitentes}
+        mailProfe={mailProfe}
         />
         )}
       <DataGrid
@@ -135,16 +169,29 @@ type PageProps ={
   estudiantes: Estudiante[];
   onGuardar: (notaNueva: number) => void;
   onClose: () => void;
+  correos: any[];
+  mailProfe: any;
 }
-function PageGestionamiento({ onGuardar, onClose, fila, estudiantes}: PageProps){
+function PageGestionamiento({ onGuardar, onClose, fila, estudiantes, correos, mailProfe}: PageProps){
   const [nota, setNota] = useState("");
+  const [accion, setAccion] = useState("");
+  const [mostrarCarga, setMostrarCarga] = useState(false);
+  const [individualFileToUpload, setIndividualFileToUpload] = useState<File | null>(null); // State for the file chosen in the modal
+  const [tipo, setTipo] = useState("");
+  const [ruta, setRuta] = useState("");
+  const [fileInputKey1, setFileInputKey1] = useState('informante'); // <-- Add this state
+
   const mailEstudiante = estudiantes.find(est => est.rut === fila.rut)?.mail ?? null;
+  if(!mailEstudiante){
+    return;
+  }
+  const partMail = mailEstudiante.replace(/[^a-zA-Z0-9]/g, '_');
   const guardar = async (nota: string) => {
   try {
     const valor = Number(nota);
     await axios.patch(`${__url}/notas/actualizar`, {
       mailEstudiante,
-      tipoNota: "notaInformante",
+      tipoNota: "notaGuia",
       valor
     });
     onGuardar(valor);
@@ -153,102 +200,321 @@ function PageGestionamiento({ onGuardar, onClose, fila, estudiantes}: PageProps)
     console.error(error);
     alert("Error al guardar la nota");
   }
-};
+  };
+  const handleIndividualFileSelect = (file: File | null) => {
+        setIndividualFileToUpload(file);
+        if (file) {
+            console.log('Archivo individual seleccionado:', file.name, file);
+        } else {
+            console.log('Archivo individual limpiado.');
+        }
+    };
+  const cargando = () => {
+    Swal.fire({
+      title: "Cargando . . .",
+      text: "Espere por favor",
+      html: '<i class="fas fa-spinner fa-spin" style="font-size: 24px;"></i>',
+      allowOutsideClick: false,
+      showConfirmButton: false,
+    });
+  };
+  const subir_descargar_Documento = async (accion: string, tipo: string, ruta: string, e?: React.ChangeEvent<HTMLInputElement>) => {
+    if(accion === 'cargar'){
 
+      if(!individualFileToUpload){
+        return;
+      }
+      if (!mailEstudiante) {
+      Swal.fire("Error", "No se pudo obtener el correo del usuario", "error");
+      return;
+      }
+      cargando();
+      const formData = new FormData();
+      formData.append("mail", mailEstudiante);
+      formData.append("file", individualFileToUpload);
+      try{
+        await axios.post(`${__url}/${tipo}/${ruta}`, formData, {
+          withCredentials: true
+        });
+        Swal.fire(
+          "Subida exitosa",
+          `Su archivo se ha cargado correctamente`,
+          "success"
+        );
+        const profe= await axios.get(`${__url}/profesor/${mailProfe}`);
+        console.log("a", profe)
+        for(let i = 0; i < correos.length; i++){
+          await axios.post(`${__url}/mail/enviar`, {
+                    toMail: `${correos[i].mail}`,
+                    subject: `Documento subido`,
+                    text: `El académico ${profe.data.nombre} ${profe.data.apellido} ${profe.data.segundoApellido}, subió una Rúbrica para informante`
+          });
+        }
+      }catch(err: any){
+        console.log(
+          "Error al subir el archivo:",
+          err.response?.data ?? err.message
+        );
+        Swal.fire(
+          "Error",
+          "Hubo un error al subir el archivo, pruebe nuevamente más tarde.",
+          "error"
+        );
+      }
+    }else if(accion === 'descargar'){
+      try{
+        console.log(`${__url}/${tipo}/${ruta}`)
+        const response = await axios.get(`${__url}/${tipo}/${ruta}`,
+          {responseType:'blob'}
+        );
+        const blob = new Blob([response.data]);
+        const url = window.URL.createObjectURL(blob);
+    
+        const a = document.createElement("a");
+        a.href = url;
+        if(ruta.includes('.xlsx')){
+          a.download = `documento_${tipo}.xlsx`;
+        }else{
+          a.download = `documento_${tipo}.docx`;
+
+        }
+    
+        document.body.appendChild(a);
+        a.click();
+    
+        a.remove();
+        window.URL.revokeObjectURL(url); // buena práctica
+    
+        Swal.fire("Descargado", "Archivo descargado correctamente", "success");
+      } catch (error) {
+        Swal.fire(
+          "ERROR",
+          "El archivo no se ha subido a la base de datos",
+          "error"
+        );
+      }
+    }
+  };
 
   return(
     <Box sx={{
+      display:'flex',
+      flexDirection:'column',
+      justifyContent:'center',
+      alignItems:'center',
       backgroundColor:'white', 
       position:'absolute', 
       zIndex: 1000, 
-      top:"200px",
-      left:"700px",
-      height:"300px",
-      width:"450px",
-      borderRadius:'2px'
+      top:"100px",
+      left:"800px",
+      height:"400px",
+      width:"800px",
+      borderColor:'black',
+      border:1,
+      borderRadius:'20px'
     }}>
-      {/*Fila uno*/}
-      <Box sx={{display:'flex', flexDirection:'row', }}>
-        <Box sx={{backgroundColor: 'white', 
-          display:'flex', 
-          justifyContent:'center', 
-          alignItems:'center', 
-          width:'225px', 
-          height:'50px',
-          border:'1px solid black',}}
-        >
-          <h3>Gestión de Documentos</h3>
-        </Box>
-        <Box sx={{backgroundColor: 'white', 
-          display:'flex', 
-          justifyContent:'center', 
-          alignItems:'center', 
-          width:'225px', 
-          height:'50px',
-          border:'1px solid black',}}
-        >
-          <h3>Gestión Nota</h3>
-        </Box>
-      </Box>
-      {/*Fila dos*/}
-      <Box sx={{display:'flex', flexDirection:'row'}}>
-        <Box sx={{
-          display:'flex',
-          flexDirection:'column',
-          justifyContent:'center',
-          alignItems:'center',
-          width:'225px',
-          height:'250px',
-          textAlign:'center',
-          border:'1px solid black',
-        }}>
-          <h4>Nota del Informante</h4>
-          <input type='text' value={nota} onChange={(e) => setNota(e.target.value)} placeholder="ejem: 6,3" className={estilo.style}/>
-          <p>Ingrese un valor entre 1 y 7. <br/> 
-              (Con un solo decimal).
-          </p>
-          <Box sx={{
-            display:'flex',
-            flexDirection:'row'}}>
-              <Stack spacing='30px' direction='row'>
-                <Button 
-                onClick={() => guardar(nota)} 
-                sx={{ 
-                  color:'white', 
-                  background:'blue'}}
-                >
-                  GUARDAR
-                </Button>
-                <Button 
-                onClick={() => {onClose();}} 
-                sx={{ 
-                  color:'white', 
-                  background:'red'}}
-                >
-                  CERRAR
-                </Button>
-              </Stack>
-            
-          </Box>
+      <Typography variant='h5' sx={{ mb: 2, textAlign: 'center' }}>
+        Indique la acción que quiere realizar
+      </Typography>
+      
+      <Box 
+      sx={{
+        display:'flex',
+        flexDirection:'row',
+        justifyContent:'center',
+        alignItems:'center',
+        position:'relative',
+        top:'20px',
         
+      }}
+      >
+        
+
+        <Box 
+        sx={{
+          width:'300px',
+          height:'300px',
+          border:1,
+          borderRadius:'20px',
+          display:'flex',
+          flexDirection:'column',
+          alignItems:'center'
+        }}
+        >
+
+          <SingleFileUploadButton
+          key={fileInputKey1}
+          onFileSelect={(file) => {
+            handleIndividualFileSelect(file); 
+            setAccion('cargar');
+            setTipo(fileInputKey1);
+            setRuta('rubrica_informante');
+            setMostrarCarga(true);
+          }}
+          onReset={() => setMostrarCarga(false)}
+          disabled={fileInputKey1===""}
+          buttonText={individualFileToUpload ? `Cambiar Archivo: ${individualFileToUpload.name}` : "Cargar Rúbrica"}
+          acceptedFileTypes=".pdf, .doc, .docx, .xlsx, .xls"
+          />
+          {mostrarCarga && (
+              <Box>
+                <Box
+                sx={{
+                display:'flex',
+                flexDirection:'row',
+                justifyContent:'center',
+                alignItems:'center',
+                gap:3
+                }}
+                >
+                  
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3, gap: 2 }}>
+                  <Button 
+                  variant="outlined" 
+                  onClick={onClose} 
+                  sx={{width:'100px'}}
+                  >
+                      Cancelar
+                  </Button>
+                  <Button
+                      variant="contained"
+                      startIcon={<SendIcon />}
+                      onClick={() => subir_descargar_Documento(accion, tipo, ruta)}
+                      disabled={!individualFileToUpload} // Disable if type or file not selected
+                      sx={{width:'100px'}}
+                  >
+                      Subir
+                  </Button>
+                </Box>
+              </Box>
+            )}
         </Box>
-        <Box sx={{
+
+        <Box 
+        sx={{
+          width:'180px',
+          height:'300px',
+          border:1,
+          borderRadius:'20px',
+          display:'flex',
+          flexDirection:'column',
+          justifyContent:'center',
+          alignItems:'center'
+        }}
+        >
+          <Box 
+        sx={{
+          width:'300px',
+          height:'150px',
           display:'flex',
           flexDirection:'column',
           justifyContent:'center',
           alignItems:'center',
-          width:'225px',
-          height:'250px',
-          border:'1px solid black',
-          }}>
-          <Stack spacing='8px'>
-            <Button sx={{backgroundColor:'white', border:'2px solid black', color:'white', background:'blue', height:'40px', width:'190px'}}>Descargar Rúbrica</Button>
-            <Button sx={{backgroundColor:'white', border:'2px solid black', color:'white', background:'blue', height:'40px', width:'190px'}}>Subir Rúbrica</Button>
-            <Button sx={{backgroundColor:'white', border:'2px solid black', color:'white', background:'blue', height:'40px', width:'190px'}}>Descargar Tesis</Button>
-            <Button sx={{backgroundColor:'white', border:'2px solid black', color:'white', background:'blue', height:'40px', width:'190px'}}>Subir Tesis</Button>
-          </Stack>
+          gap:3
+        }}
+        >
+          <Button
+            onClick={() => {
+            setAccion('descargar');
+            setTipo('informante');
+            setRuta('archivos_informante/molde.xlsx')
+            subir_descargar_Documento(accion, tipo, "archivos_informante/molde.xlsx")
+            }}
+            sx={{
+            position:'relative',
+            backgroundColor:'#003C58', 
+            color:'white',
+            width:'150px',
+            height:'50px',
+            borderRadius:'10px',
+            }}
+            >
+              Descargar Plantilla
+            </Button>
+            
+            <Button
+              startIcon={<SendIcon />}
+              onClick={() => {
+                setAccion('descargar');
+                setTipo('informante');
+                setRuta(`archivos_Informante/${partMail}-documento_informante.xlsx`);
+                subir_descargar_Documento(accion, tipo, ruta);
+              }}
+              sx={{
+              backgroundColor:'#003C58', 
+              color:'white',
+              width:'150px',
+              height:'50px',
+              borderRadius:'10px'
+              }}
+            >
+              Descargar Rúbrica
+            </Button>
+          </Box>
+          
+        </Box>
+    
+        <Box 
+        sx={{
+          width:'180px',
+          height:'300px',
+          border:1,
+          borderRadius:'20px',
+          display:'flex',
+          flexDirection:'column',
+          justifyContent:'center',
+          alignItems:'center'
+        }}
+        >
+          <Box
+          sx={{
+            display:'flex',
+            justifyContent:'center',
+            flexDirection:'column',
+            alignItems:'center'
+          }}
+          >
+            <Typography variant='h6' sx={{ mb: 2, textAlign: 'center' }}>
+                Ingrese Nota Informante
+            </Typography>
+            <TextField
+              label="Ejemplo: 6.5" 
+              value={nota}
+              onChange={(e) => setNota(e.target.value)}
+              sx={{ width: '120px', height: '50px' }}
+            />
+            <p>Ingrese un valor entre 1 y 7. <br/> 
+                (Con un solo decimal).
+            </p>
+            <Box sx={{
+              display:'flex',
+              flexDirection:'row'}}>
+                <Stack spacing='30px' direction='row'>
+                  <Button 
+                  onClick={() => guardar(nota)} 
+                  sx={{ 
+                    color:'white', 
+                    background:'blue'}}
+                  >
+                    GUARDAR
+                  </Button>
+                  <Button 
+                  onClick={() => {onClose();}} 
+                  sx={{ 
+                    color:'white', 
+                    background:'red'}}
+                  >
+                    CERRAR
+                  </Button>
+                </Stack>
+            </Box>
+          </Box>
         </Box>
       </Box>
+      
+      
+      
     </Box>
   );
 }

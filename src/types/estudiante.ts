@@ -13,4 +13,5 @@ export interface Estudiante{
     fechaExamen: string;
     sede: string;
     addedAt: string
+    mailPersonal: string;
 }
