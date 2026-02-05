@@ -14,4 +14,7 @@ export interface Estudiante{
     sede: string;
     addedAt: string
     mailPersonal: string;
+    celular: string;
+    semestre: string;
+    nombreTesis: string;
 }

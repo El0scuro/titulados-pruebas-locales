@@ -17,12 +17,9 @@ import ListItemText from '@mui/material/ListItemText';
 import { Button } from '@mui/material';
 import LogoutIcon from "@mui/icons-material/Logout";
 // Icons for the lateral menu (choose relevant ones)
-import InboxIcon from '@mui/icons-material/MoveToInbox';
-import MailIcon from '@mui/icons-material/Mail';
 import DescriptionIcon from '@mui/icons-material/Description'; // For Archivos
 import AssignmentIcon from '@mui/icons-material/Assignment';   // For Asignaciones
 import GroupIcon from '@mui/icons-material/Group';             // For Estudiantes
-import NotificationsIcon from '@mui/icons-material/Notifications'; // For Notificaciones
 import SchoolIcon from '@mui/icons-material/School';           // For Profesores
 import HomeIcon from '@mui/icons-material/Home';               // For Inicio (Dashboard Overview)
 

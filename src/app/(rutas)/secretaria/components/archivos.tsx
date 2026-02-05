@@ -2,7 +2,7 @@
 import CloudDownloadDualColor from '@/app/components/downloadIcon';
 import Backdrop from '@mui/material/Backdrop';
 import { Box, Button, Card, CardActionArea, Paper, Typography, Modal, Select, MenuItem, FormControl, InputLabel, Snackbar } from '@mui/material'; // Added Select, MenuItem, FormControl, InputLabel
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import SingleFileUploadButton from '@/app/components/singleFileButton'; // Ensure this path is correct
 import SendIcon from '@mui/icons-material/Send';
 import UploadFileIcon from '@mui/icons-material/Upload'; // Icon for upload action
@@ -16,16 +16,23 @@ import { useAccessToken } from '../../../context/TokenContext';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import * as XLSX from 'xlsx';
 import { useSearchParams } from 'next/navigation';
+import { Estudiante } from '@/types/estudiante';
+import { Profesor } from '@/types/profesor';
+import { Asignacion } from '@/types/asignacion';
+import { Notas } from '@/types/notas';
 function Archivos() {
 
     const searchParams = useSearchParams();
     const sede = searchParams.get("sede") ?? "";
+
+    const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
+    const [profesores, setProfesores] = useState<Profesor[]>([]);
+    const [asignaciones, setAsignaciones] = useState<Asignacion[]>([]);
+    const [notas, setNotas] = useState<Notas[]>([]);
     //Aquí se guardará la plantilla excel
     const [archivoExcel, setArchivoExcel] = useState<File | null>(null);
 
-
     const [selectedStudentIdForUpload, setSelectedStudentIdForUpload] = useState<string | null>(null);
-
 
     const [openUploadModal, setOpenUploadModal] = useState(false); // Renamed 'open' to 'openModal' for clarity
 
@@ -33,17 +40,29 @@ function Archivos() {
 
     const [selectedFileType, setSelectedFileType] = useState<string>(''); // State for selected file type in modal
 
-
     const [individualFileToUpload, setIndividualFileToUpload] = useState<File | null>(null); // State for the file chosen in the modal
-
 
     const token = useAccessToken();
 
-
     const [fileInputKey, setFileInputKey] = useState(0); // <-- Add this state
 
-    
     const [rows, setRows] = useState<StudentRow[]>([]);
+
+    useEffect(() => {
+        const datos_todos = async() => {
+            const [estRes, proRes, asiRes, notRes] = await Promise.all([
+                axios.get(`${__url}/estudiante/todos`),
+                axios.get(`${__url}/profesor/todos`),
+                axios.get(`${__url}/asignaciones/todas`),
+                axios.get(`${__url}/notas/todas`)
+            ]);
+            setEstudiantes(estRes.data);
+            setProfesores(proRes.data);
+            setAsignaciones(asiRes.data);
+            setNotas(notRes.data);
+        }
+        datos_todos();
+    }, []);
 
     //selecciona el archivo excel y lo guarda en ArchivoExcel
     const handleExcelFileSelect = (file: File | null) => { // Renamed for clarity
@@ -139,9 +158,6 @@ function Archivos() {
         disableRowSelectionOnClick: boolean;
         getRowId: (row: StudentRow) => string;
     }
-    
-
-    
 
     // --- DataGrid Columns and Rows for Manual File Upload Section ---
     interface StudentRow {
@@ -239,15 +255,10 @@ function Archivos() {
     };
 
     const handleUploadIndividualFile = async () => {
-
         if (selectedStudentIdForUpload && selectedFileType && individualFileToUpload) {
-            
             const formData = new FormData();
             formData.append('mail', selectedStudentIdForUpload);
             formData.append('file', individualFileToUpload);
-            
-            
-
             try {
                 let response: any;
                 switch (selectedFileType){
@@ -314,14 +325,103 @@ function Archivos() {
         gap: 2,
     };
     
-  const handleStudentFileDownload = async () => {
-  try {
-    if (selectedStudentIdForUpload && selectedFileType) {
+    const handleReporteFileDownload = async() => {
+        try{
+            //datos que se suirán al reporte
+            const datos: any[] = [];
             
-            
-            const partMail = selectedStudentIdForUpload.replace(/[^a-zA-Z0-9]/g, '_');
-            
+            let mailGuia: any;
+            let guia;
+            let mailInformante: any;
+            let informante;
+            let mailPresidente: any;
+            let presidente;
+            let mailSecretario: any;
+            let secretario;
 
+            let notasEstudiante: Notas | undefined;
+            let notaGuia;
+            let notaInformante;
+            let notaTesis;
+            let notaDefensa;
+            let notaFinal;
+            for(let i = 0; i < estudiantes.length; i++){
+                //asignaciones del estudiante filtrada por los roles
+                mailGuia = asignaciones.filter(asig => asig.mailEstudiante === estudiantes[i].mail).find(asig => asig.rol === 'guia');
+                guia = profesores.find(pro => pro.mail === mailGuia)?.nombre + " " + profesores.find(pro => pro.mail === mailGuia)?.apellido + " " + profesores.find(pro => pro.mail === mailGuia)?.segundoApellido;
+                
+                mailInformante = asignaciones.filter(asig => asig.mailEstudiante === estudiantes[i].mail).find(asig => asig.rol === 'informante');
+                informante = profesores.find(pro => pro.mail === mailInformante)?.nombre + " " + profesores.find(pro => pro.mail === mailInformante)?.apellido + " " + profesores.find(pro => pro.mail === mailInformante)?.segundoApellido;
+                
+                mailPresidente = asignaciones.filter(asig => asig.mailEstudiante === estudiantes[i].mail).find(asig => asig.rol === 'presidente');
+                presidente = profesores.find(pro => pro.mail === mailPresidente)?.nombre + " " + profesores.find(pro => pro.mail === mailPresidente)?.apellido + " " + profesores.find(pro => pro.mail === mailPresidente)?.segundoApellido;
+                
+                mailSecretario = asignaciones.filter(asig => asig.mailEstudiante === estudiantes[i].mail).find(asig => asig.rol === 'secretario');
+                secretario = profesores.find(pro => pro.mail === mailSecretario)?.nombre + " " + profesores.find(pro => pro.mail === mailSecretario)?.apellido + " "  + profesores.find(pro => pro.mail === mailSecretario)?.segundoApellido;
+                
+                //notas del estudiante
+                notasEstudiante = notas.find(not => not.mailEstudiante === estudiantes[i].mail);
+                notaGuia = notasEstudiante?.notaGuia;
+                notaInformante = notasEstudiante?.notaInformante;
+                notaTesis = notasEstudiante?.notaTesis;
+                notaDefensa = notasEstudiante?.notaExamenOral;
+                notaFinal = notasEstudiante?.notaFinal;
+                if(mailGuia === undefined){
+                    guia = 'Ninguno';
+                }
+                if(mailInformante === undefined){
+                    informante = 'Ninguno';
+                }
+                if(mailPresidente === undefined){
+                    presidente = 'Ninguno';
+                }
+                if(mailSecretario === undefined){
+                    secretario = 'Ninguno';
+                }
+                const numero = i + 1;
+                const alumno = estudiantes[i].nombre + " " + estudiantes[i].segundoNombre + " " + estudiantes[i].apellido + " " + estudiantes[i].segundoApellido;
+                datos.push({
+                    numero,
+                    semestre: estudiantes[i].semestre,
+                    alumno,
+                    rut: estudiantes[i].rut,
+                    codCarrera: estudiantes[i].codigo,
+                    ingreso: estudiantes[i].anoEgreso,
+                    egreso: estudiantes[i].anoEgreso,
+                    fechaExamen: estudiantes[i].fechaExamen,
+                    horaExamen: estudiantes[i].hora,
+                    mailEstudiante: estudiantes[i].mail,
+                    celular: estudiantes[i].celular,
+                    guia,
+                    informante,
+                    presidente,
+                    secretario,
+                    notaGuia,
+                    notaInformante,
+                    notaTesis,
+                    notaDefensa,
+                    notaFinal
+                })
+            }
+            const response = await axios.post(`${__url}/excel/reporte`, datos, {
+                responseType: 'blob'
+            })
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Reporte_Estudiantes.xlsx`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
+    const handleStudentFileDownload = async () => {
+    try {
+        if (selectedStudentIdForUpload && selectedFileType) {
+            const partMail = selectedStudentIdForUpload.replace(/[^a-zA-Z0-9]/g, '_');
             try {
                 let response: any;
                 let blob: any;
@@ -417,25 +517,19 @@ function Archivos() {
             }
                         
             handleCloseDownloadModal();
-
         } else {
             console.warn('Faltan datos para subir el archivo individual (estudiante, tipo de archivo o archivo).');
             alert('Por favor, selecciona el tipo de archivo y el archivo a subir.');
         }
-
-    
-
-    
-
-    Swal.fire("Descargado", "Archivo descargado correctamente", "success");
-  } catch (error) {
-    Swal.fire(
-      "Error",
-      "Hubo un error al descargar el archivo",
-      "error"
-    );
-  }
-};
+        Swal.fire("Descargado", "Archivo descargado correctamente", "success");
+    } catch (error) {
+        Swal.fire(
+        "Error",
+        "Hubo un error al descargar el archivo",
+        "error"
+        );
+    }
+    };
     return (
         <Box sx={{ p: 3, width: '100%' }}>
 

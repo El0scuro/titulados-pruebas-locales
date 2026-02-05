@@ -123,7 +123,7 @@ function Asignaciones() {
     if (!estudiante) return;
 
     setNewAssignment(prev => {
-        if (prev.id === estudiante.rut) return prev; // 🛑 evita loop
+        if (prev.id === estudiante.rut) return prev; 
         return {
             ...prev,
             id: estudiante.rut
