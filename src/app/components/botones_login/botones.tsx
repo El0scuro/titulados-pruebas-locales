@@ -5,7 +5,6 @@ import PersonIcon from '@mui/icons-material/Person';
 import BusinessCenterIcon from '@mui/icons-material/BusinessCenter';
 import SchoolIcon from '@mui/icons-material/School';
 import SettingsIcon from '@mui/icons-material/Settings';
-import FolderSharedOutlinedIcon from '@mui/icons-material/FolderSharedOutlined';
 const perfiles = [
     {
       id: 'estudiantes',
@@ -36,14 +35,6 @@ const perfiles = [
       icon: SettingsIcon,
       link: '/auth/login?role=jefatura',
     },
-    {
-      id: 'administrador',
-      title: 'Administrador',
-      description: 'Gstione información del sistema',
-      icon: FolderSharedOutlinedIcon,
-      link: 'auth/login?role=administrador'
-
-    }
   ];
 export default function Boton_Perfil() {
     return (

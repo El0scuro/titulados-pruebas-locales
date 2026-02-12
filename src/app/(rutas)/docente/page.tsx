@@ -1,6 +1,6 @@
 "use client";
 import LogoutIcon from "@mui/icons-material/Logout";
-import {Button, Stack} from "@mui/material";
+import {Button} from "@mui/material";
 import * as React from 'react';
 import Box from '@mui/material/Box';
 import BottomNavigation from '@mui/material/BottomNavigation';
@@ -13,11 +13,8 @@ import { Typography } from '@mui/material';
 import { Asignacion } from '@/types/asignacion';
 import axios from 'axios';
 import __url from '@/lib/const';
-import { Estudiante } from "@/types/estudiante";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState, useMemo} from "react";
-import { GridColDef, GridRowsProp } from '@mui/x-data-grid';
-import estilo from "./style.module.css";
 import GuiaContent from "./components/guia";
 import InformanteContent from "./components/informante";
 import PresidenteContent from "./components/presidente";
@@ -39,6 +36,7 @@ export default function CustomBottomNavigation() {
   const searchParams = useSearchParams();
   const mail = searchParams.get("mail");
   const sede = searchParams.get("sede");
+  
   //importo las asignaciones
   useEffect(() => {
     const datos_todos = async () => {
@@ -57,12 +55,12 @@ export default function CustomBottomNavigation() {
     };
     datos_todos();
 }, []);
-
-
+ 
+  
   //filtro las asignaciones con el profesor que ingresó, y las cuales sean con el rol 'guia'
-    const asigsGuia = useMemo(() => {
-      return asignaciones.filter(a => a.mailProfesor === mail && a.rol === 'guia');
-    }, [asignaciones, mail]);
+  const asigsGuia = useMemo(() => {
+    return asignaciones.filter(a => a.mailProfesor === mail && a.rol === 'guia');
+  }, [asignaciones, mail]);
 
   //filtro las asignaciones con el profesor que ingresó, y las cuales sean con el rol 'informante'
   const asigsInformante = useMemo(() => {
@@ -70,18 +68,24 @@ export default function CustomBottomNavigation() {
   }, [asignaciones, mail]);
   
   const asigsSecretaria = useMemo(() => {
-    return asignaciones.filter(a => a.mailProfesor === mail && a.rol === 'secretaria' );
+    return asignaciones.filter(a => a.mailProfesor === mail && a.rol === 'secretario' );
   }, [asignaciones, mail]);
 
   const asigsPresidente = useMemo(() => {
     return asignaciones.filter(a => a.mailProfesor === mail && a.rol === 'presidente');
   }, [asignaciones, mail]);
- 
+  
+  if(!sede){
+    return;
+  }
+  if(!mail){
+    return;
+  }
   //habilitar y bloquear botones
-  let guiaColor: any;
-  let inforColor: any;
-  let secreColor: any;
-  let presiColor: any;
+  let guiaColor;
+  let inforColor;
+  let secreColor;
+  let presiColor;
   let guiaCond = true;
   let inforCond = true;
   let secreCond = true;
@@ -102,37 +106,7 @@ export default function CustomBottomNavigation() {
     presiCond = false;
     presiColor = 'red';
   }
-  //columas secretario
-  const columnsSecretario: GridColDef[] = [
-      { field: 'id', headerName: 'ID', width: 90 },
-      { field: 'docName', headerName: 'Documento', width: 300 },
-      { field: 'type', headerName: 'Tipo', width: 150 },
-      { field: 'uploaded', headerName: 'Subido', width: 150 },
-    ];
-
-  //filas secretario
-  const rowsSecretario: GridRowsProp = [
-    { id: 1, docName: 'Acta de reunión 01', type: 'Acta', uploaded: '2025-06-01' },
-    { id: 2, docName: 'Lista de estudiantes', type: 'Excel', uploaded: '2025-05-20' },
-    { id: 3, docName: 'Correspondencia oficial', type: 'Carta', uploaded: '2025-04-15' },
-  ];
-
-
-  //columnas presidente
-  const presidenteRows = [
-    { id: 1, decision: 'Aprobación presupuesto 2026', dateIssued: '2025-07-23' },
-    { id: 2, decision: 'Nombramiento de comité', dateIssued: '2025-07-18' },
-    { id: 3, decision: 'Plan estratégico Q4', dateIssued: '2025-07-10' },
-    { id: 4, decision: 'Revisión de políticas', dateIssued: '2025-07-05' },
-  ];
-
-  //filas presidente
-    const presidenteColumns = [
-      { field: 'id', headerName: 'ID Decisión', width: 90 },
-      { field: 'decision', headerName: 'Decisión', width: 300, editable: true },
-      { field: 'dateIssued', headerName: 'Fecha Emisión', width: 150, editable: true },
-    ];
-
+  
   return (
     
     <Box sx={{ width: '100%'}}>
@@ -158,7 +132,7 @@ export default function CustomBottomNavigation() {
       >
         <BottomNavigationAction disabled={guiaCond === false} label="Guía" value='guia' sx={{color: guiaColor}} icon={<SchoolIcon />}/>
         <BottomNavigationAction disabled={inforCond === false} label="Informante" value='informante' sx={{color: inforColor}} icon={<InfoIcon />} />
-        <BottomNavigationAction disabled={secreCond === false} label="Secretario" value='secretaria' sx={{color: secreColor}} icon={<DescriptionIcon />} />
+        <BottomNavigationAction disabled={secreCond === false} label="Secretario" value='secretario' sx={{color: secreColor}} icon={<DescriptionIcon />} />
         <BottomNavigationAction disabled={presiCond === false} label="Presidente" value='presidente' sx={{color: presiColor}} icon={<GavelIcon />} />
       </BottomNavigation>
       <Box>
@@ -187,7 +161,7 @@ export default function CustomBottomNavigation() {
           )}
           {value === 'presidente' &&(
             <Box sx={{ p: 3, width: '100%', height: 400 }}> {/* Ensure height is set for DataGrid */}
-            <PresidenteContent rows={presidenteRows} columns={presidenteColumns}/>
+            <PresidenteContent/>
         </Box>
           )}
       </Box>

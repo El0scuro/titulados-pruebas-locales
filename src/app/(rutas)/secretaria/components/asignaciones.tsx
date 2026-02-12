@@ -1,6 +1,5 @@
 "use client"; // Required for client-side components in Next.js App Router
-import { BottomNavigation, BottomNavigationAction, Box, Card, Typography, TextField, Button, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
-import Swal from 'sweetalert2';
+import { BottomNavigation, BottomNavigationAction, Box, Card, Typography, Button, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import React, { useEffect, useState, useMemo } from 'react';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -14,7 +13,6 @@ import { Profesor } from '@/types/profesor';
 import { Asignacion } from '@/types/asignacion';
 import { Estado } from '@/types/estados';
 import { useSearchParams } from 'next/navigation';
-import ContactMailIcon from '@mui/icons-material/ContactMail';
 
 function Asignaciones() {
 
@@ -31,7 +29,6 @@ function Asignaciones() {
 
     //molde rellenable de la asignación
     const [newAssignment, setNewAssignment] = useState<NewAssignmentState>({
-        id: '',
         mailEstudiante: '',
         mailProfesor: '',
         rol: '',
@@ -112,39 +109,21 @@ function Asignaciones() {
         const esta = estados.find(est => est.mailEstudiante === asignacion.mailEstudiante)
         return esta?.estado;
     }
-    //Cuando se seleccione un estudiante, se guardará su rut
-    useEffect(() => {
-    if (!newAssignment.mailEstudiante) return;
-
-    const estudiante = estusSede.find(
-        est => est.mail === newAssignment.mailEstudiante
-    );
-
-    if (!estudiante) return;
-
-    setNewAssignment(prev => {
-        if (prev.id === estudiante.rut) return prev; 
-        return {
-            ...prev,
-            id: estudiante.rut
-        };
-    });
-}, [newAssignment.mailEstudiante, estusSede]);
+    
 
     // --- DataGrid for "Visualizar asignaciones" ---
     interface filas {
-        rut: string;
+        id: string;
         studentName: string;
         professorName: string;
         rol: string; 
-        status: string;
     }
     //filas de asignaciones
     const filas = useMemo(() => {
         if (!asigs.length) return [];
         
         return asigs.map(asig => ({
-            rut: asig.id,
+            id: asig.id,
             studentName: encuentraEstudiante(asig) ?? '-',
             professorName: encuentraProfe(asig) ?? '-',
             rol: asig.rol,
@@ -169,15 +148,15 @@ function Asignaciones() {
             const name = nombre.split(" ");
             return estusSede.find(est => est.nombre === name[0])?.mail
         }
-    const enviarCorreo = async(parametros: any) => {
+    const enviarCorreo = async(parametros: filas) => {
         const mailEstu = estuMail(parametros.studentName);
         if(!mailEstu){
             return;
         }
         const partMail = mailEstu.replace(/[^a-zA-Z0-9]/g, '_');
-        let rutas: string[] = [];
-        let archivos: string[] = [];
-        let text: any;
+        const rutas: string[] = [];
+        const archivos: string[] = [];
+        let text;
         const mailProfe = profeMail(parametros.professorName);
         if(!mailProfe){
             return;
@@ -229,43 +208,41 @@ function Asignaciones() {
     }    
     //columnas de asignaciones
     const assignmentColumns: GridColDef<filas>[] = [
-        { field: 'rut', headerName: 'Rut', width: 70 },
-        { field: 'studentName', headerName: 'Estudiante', width: 200 },
-        { field: 'professorName', headerName: 'Profesor', width: 200 },
-        { field: 'rol', headerName: 'Rol', width: 250 }, // DataGrid column for 'rol'
-        { field: 'status', headerName: 'Estado', width: 130 },
-        {field: 'eliminar', headerName: 'ACCIONES', width: 300, renderCell: (params)=>(
-            <Box display="flex" gap={1} alignItems="center">
-                <Button 
-                size='small'
-                onClick={() => eliminarFila(params.row.rut)}
-                >
-                    eliminar
-                </Button>
-                <Box  >
-                    <Button
-                    onClick={() => enviarCorreo(params.row)}
+            { field: 'id', headerName: 'Id', width: 70 },
+            { field: 'studentName', headerName: 'Estudiante', width: 200 },
+            { field: 'professorName', headerName: 'Profesor', width: 200 },
+            { field: 'rol', headerName: 'Rol', width: 250 }, 
+            {field: 'eliminar', headerName: 'ACCIONES', width: 300, renderCell: (params)=>(
+                <Box display="flex" gap={1} alignItems="center">
+                    <Button 
                     size='small'
-                    sx={{
-                        textDecoration:'none',
-                        display:'flex',
-                        alignItems:'center',
-                        justifyContent:'center'
-                    }}
+                    onClick={() => eliminarFila(params.row.id)}
                     >
-                        Notificar Profesor
-                        
+                        eliminar
                     </Button>
+                    <Box  >
+                        <Button
+                        onClick={() => enviarCorreo(params.row)}
+                        size='small'
+                        sx={{
+                            textDecoration:'none',
+                            display:'flex',
+                            alignItems:'center',
+                            justifyContent:'center'
+                        }}
+                        >
+                            Notificar Profesor
+                            
+                        </Button>
+                        
+                    </Box>
                     
                 </Box>
-                
-            </Box>
-        )}
-    ];
+            )}
+        ];
     
     // --- State for "Generar asignación" form ---
     interface NewAssignmentState {
-        id: string;
         mailEstudiante: string;
         mailProfesor: string;
         rol: string; // 'rol' is now a direct field in the state
@@ -284,8 +261,6 @@ function Asignaciones() {
 
     //envía la asignación a la db local
     const handleSubmitAssignment = async () => {
-        
-        let response: any;
         // Validate required fields
         if (!newAssignment.mailEstudiante || !newAssignment.mailProfesor || !newAssignment.rol) {
             alert('Por favor, completa todos los campos requeridos para la asignación (Estudiante, Profesor, Rol).');
@@ -298,15 +273,16 @@ function Asignaciones() {
             const estuMail = estudiantes.find(est => est.mail === newAssignment.mailEstudiante)?.nombre
                 + " " + estudiantes.find(est => est.mail === newAssignment.mailEstudiante)?.apellido
                 + " " + estudiantes.find(est => est.mail === newAssignment.mailEstudiante)?.segundoApellido;
-            response = await axios.post(
+                console.log(newAssignment)
+            await axios.post(
                 `${__url}/asignaciones/crear`,
                 newAssignment
             );
             alert('Asignación generada exitosamente (simulado)!');
             const partMail = newAssignment.mailEstudiante.replace(/[^a-zA-Z0-9]/g, '_');
-            let rutas: string[] = [];
-            let archivos: string[] = [];
-            let text: any;
+            const rutas: string[] = [];
+            const archivos: string[] = [];
+            let text;
             switch (newAssignment.rol){
                 case 'guia':
                     rutas.push(`archivos_guia`);
@@ -354,7 +330,6 @@ function Asignaciones() {
             
             // Reset form after successful (simulated) submission
             setNewAssignment({
-                id: '',
                 mailEstudiante: '',
                 mailProfesor: '',
                 rol: ''
@@ -401,7 +376,7 @@ function Asignaciones() {
                             <DataGrid
                                 rows={filas}
                                 columns={assignmentColumns}
-                                getRowId= {(row) => row.rut }
+                                getRowId= {(row) => row.id }
                                 pageSizeOptions={[5, 10, 20]}
                                 initialState={{
                                     pagination: {

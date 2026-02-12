@@ -6,7 +6,6 @@ import { Asignacion } from '@/types/asignacion';
 import { Estudiante } from '@/types/estudiante';
 import axios from 'axios';
 import __url from '@/lib/const';
-import { useSearchParams } from 'next/navigation';
 import { Notas } from '@/types/notas';
 import { Ficha } from '@/types/fichas_inscripcion';
 import MoodBadTwoToneIcon from '@mui/icons-material/ClearOutlined';
@@ -16,24 +15,24 @@ import { Guia } from '@/types/guias';
 import { Informante } from '@/types/informante';
 import { Tesis } from '@/types/tesis';
 import { Estado } from '@/types/estados';
-export interface filas{
-    id: string;
-    studentName: string;
-    mail: string;
-    estado: string;
-    hora: string;
-    fechaExamen: string;
-}
+
 
 function Estudiantes() {
-
+    
     const [showPageNota, setShowPageNota] = useState(false);
     const [showPageEstado, setShowPageEstado] = useState(false); 
     const [showPageExamen, setShowPageExamen] = useState(false);
+    const [showPageDatos, setShowPageDatos] = useState(false);    
     const [filaSeleccionada, setFilaSeleccionada] = useState<filas>();
-    //Sede de la secretaria que ingresó
-    const searchParams = useSearchParams();
-    const sede = searchParams.get("sede");
+    
+    interface filas {
+        id: string;
+        studentName: string;
+        mail: string;
+        estado: string;
+        hora: string;
+        fechaExamen: string;
+    }
     
     const [asignaciones, setAsignaciones] = useState<Asignacion[]>([]);
     const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
@@ -43,6 +42,8 @@ function Estudiantes() {
     const [informantes, setInformantes] = useState<Informante[]>([]);
     const [tesis, setTesis] = useState<Tesis[]>([]);
     const [estados, setEstados] = useState<Estado[]>([]);
+
+
     //traigo las asignaciones, los estudiante, los profesores, y los estados
     useEffect(() => {
     const datos_todos = async () => {
@@ -63,57 +64,48 @@ function Estudiantes() {
             setInformantes(infoRes.data);
             setTesis(tesRes.data);
             setEstados(estRes.data);
-        } catch {
+        } catch (error) {
+            console.log(error);
         }
     };
     datos_todos();
 }, []);
 
-    //filtro a los estudiantes por la sede
-    const estusSede = useMemo(
-        () => estudiantes.filter(est => est.sede === sede),
-        [estudiantes, sede]
-        );
-
-    //filtro las asignaciones que tengan a los estudiantes de la misma sede del secretario
-    const asigsSede = useMemo(() => {
-        if (!asignaciones.length || !estusSede.length) return [];
-
-        return asignaciones.filter(asig =>
-            estusSede.some(est => est.mail === asig.mailEstudiante)
-        );
-    }, [asignaciones, estusSede]);
-
     const asigsUnicas = useMemo(() => {
-            const asigUnicas: Asignacion[] = [];
-            for(let i = 0; i < estudiantes.length; i++){
-                const asigsEstu = asignaciones.filter(asig => asig.mailEstudiante === estudiantes[i].mail);
-                if(asigsEstu.length >= 1){
-                    asigUnicas.push(asigsEstu[0]);
-                }
+        const asigUnicas: Asignacion[] = [];
+        for(let i = 0; i < estudiantes.length; i++){
+            const asigsEstu = asignaciones.filter(asig => asig.mailEstudiante === estudiantes[i].mail);
+            if(asigsEstu.length >= 1){
+                asigUnicas.push(asigsEstu[0]);
             }
-            return asigUnicas;
-        }, [asigsSede]);
+        }
+        return asigUnicas;
+    }, [asignaciones]);
+
     //Muestra si el estudiante tiene los documentos y las notas subidas, y revisa si estas ultimas son por encima del 4
     const docus_notas = (nombreEstu: string, rolNota: string) => {
-        const mailestudiante = estudiantes.find(est => (est.nombre + " " + est.segundoNombre + " " + est.apellido + " " + est.segundoApellido) === nombreEstu)?.mail;
+        const nombre = nombreEstu.split("\n")[0] + " " + nombreEstu.split("\n")[1];
+        if(!nombre){
+            return;
+        }
+        const mailestudiante = estudiantes.find(est => (est.nombre + " " + est.segundoNombre + " " + est.apellido + " " + est.segundoApellido) === nombre)?.mail;
+        
+        
         if(!mailestudiante){
             return;
         }
-        const asig = asigsSede.find(asig => asig.mailEstudiante === mailestudiante);
+        const asig = asigsUnicas.find(asig => asig.mailEstudiante === mailestudiante);
         if(!asig){
-            return "";
+            return;
         }
+       
+
         const grupoNotas = notas.find(nota => nota.mailEstudiante === asig.mailEstudiante);
-        
         const notaGuia = grupoNotas?.notaGuia;
         const notaInformante = grupoNotas?.notaInformante
         const notaTesis = grupoNotas?.notaTesis;
         const notaOral = grupoNotas?.notaExamenOral;
         const notaFinal = grupoNotas?.notaFinal;
-        if(!nombreEstu){
-            return ""
-        }
         
         let fila1;
         let fila2;
@@ -311,7 +303,7 @@ function Estudiantes() {
     }
 
     const assignmentColumns: GridColDef<filas>[] = [
-    { field: 'id', headerName: 'id', width: 50},
+        { field: 'id', headerName: 'id', width: 50},
         { field: 'studentName', headerName: 'Estudiante', width: 100, renderCell: (params) => (
             <Box style={{ 
                 whiteSpace: 'pre-line',
@@ -338,7 +330,7 @@ function Estudiantes() {
         { field: 'notaGuia', headerName: 'Nota Guía', width: 100, renderCell: (params) => {
             return(
                 <Box sx = {{display:'flex', justifyContent:'center', alignItems:'center', width:'100%', height:'100%', gap:3}}>
-                        
+                     
                     {docus_notas(params.row.studentName, params.field)}
                 </Box>
             )}
@@ -382,6 +374,22 @@ function Estudiantes() {
                         height:'100%'
                     }}
                 >
+                    <Box
+                    sx={{
+                        display:'flex',
+                        justifyContent:'center',
+                        alignItems:'center'
+                    }}
+                    >
+                        <Button
+                        onClick={() => {
+                            setShowPageDatos(true);
+                            setFilaSeleccionada(params.row);
+                        }}
+                        >
+                            Datos estudiante
+                        </Button>
+                    </Box>
                     <Box
                     sx ={{
                         display:'flex',
@@ -433,23 +441,19 @@ function Estudiantes() {
                 </Box>
             )
         }}
-        ];
+    ];
     const nombreEstudiante = (est: Estudiante | null) => {
         if(!est){
             return "";
         }
-        const nombre = est.nombre 
-        + " " 
-        + est.segundoNombre 
-        + " "
-        + est.apellido
-        + " "
-        + est.segundoApellido
+    const nombre = `${est.nombre} ${est.segundoNombre}\n${est.apellido} ${est.segundoApellido}`
+
         return nombre;
     }
 
     const filasEstudiantes = useMemo(() => {
           if (!asigsUnicas.length) return [];
+
           const Filas = asigsUnicas.map(asig => {
                 const estudiante = estudiantes.find(est => est.mail === asig.mailEstudiante);
                 return {
@@ -474,8 +478,12 @@ function Estudiantes() {
             setNotas(actualizado.data)
         }
         else if(tipoCall === 'estado'){
-            const actualizado = await axios.get(`${__url}/notas/todas`);
+            const actualizado = await axios.get(`${__url}/estados/todos`);
             setEstados(actualizado.data)
+        }
+        else if(tipoCall === 'examen'){
+            const actualizado = await axios.get(`${__url}/estudiante/todos`);
+            setEstudiantes(actualizado.data)
         }
     }
     
@@ -513,7 +521,7 @@ function Estudiantes() {
     link.remove();
     }
     return (
-        <Box sx={{width: '100%' }}>
+        <Box sx={{  width: '100%' }}>
             <Card sx={{ mb: 3, p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: 3 }}>
                 <Box sx={{ mt: 2, width: '100%' }}>
                     <Typography variant="body1" sx={{ mb: 2 }}>
@@ -521,18 +529,20 @@ function Estudiantes() {
                     </Typography>
                     
                         {showPageNota && (
+                            
                             <ChangePage
                             action={() => setShowPageNota(false)}
                             fila={filaSeleccionada}
-                            estudiantes={estusSede}
+                            estudiantes={estudiantes}
                             ActionAction={() => callActualizado('nota')}
                             />
                         )}
                         {showPageEstado && (
+
                             <StatePage
                             action={() => setShowPageEstado(false)}
                             fila={filaSeleccionada}
-                            estudiantes={estusSede}
+                            estudiantes={estudiantes}
                             ActionAction={() => callActualizado('estado')}
                             />
                         )}
@@ -544,6 +554,13 @@ function Estudiantes() {
                             ActionAction={() => callActualizado('examen')}
                             />
                         )}
+                        {showPageDatos && (
+                            <DatosPage
+                            action={() => setShowPageDatos(false)}
+                            fila={filaSeleccionada}
+                            estudiantes={estudiantes}
+                            />
+                        )}
                         <DataGrid
                             sx={{
                                 position:'relative',
@@ -553,7 +570,7 @@ function Estudiantes() {
                             columns={assignmentColumns}
                             pageSizeOptions={[5, 10, 20]}
                             getRowId= {(row) => row.id }
-                            rowHeight={100}
+                            rowHeight={150}
                             initialState={{
                                 pagination: {
                                     paginationModel: { pageSize: 5 }
@@ -568,12 +585,23 @@ function Estudiantes() {
         </Box >
     );
 }
-
+export interface filas{
+    id: string;
+    studentName: string;
+    estado: string;
+    hora: string;
+    fechaExamen: string;
+}
 type PageProps = {
     fila: filas | undefined;
     estudiantes: Estudiante[];
     action: () => void;
     ActionAction: () => void;
+}
+type DatosPageProps = {
+    fila: filas | undefined;
+    estudiantes: Estudiante[];
+    action: () => void;
 }
 export function ChangePage({action: onClose, fila, estudiantes, ActionAction: ActionAction}: PageProps){
     const [nota, setNota] = useState("");
@@ -885,4 +913,74 @@ export function ExamenPage({action: onClose, fila, estudiantes, ActionAction: Ac
         </Box>
     )
 }
+
+export function DatosPage({action: onClose, fila, estudiantes}: DatosPageProps){
+    if(!fila){
+        return;
+    }
+    const nombre = fila.studentName.split("\n")[0] + " " + fila.studentName.split("\n")[1];
+    const estudiante = estudiantes.find(est => (est.nombre + " " + est.segundoNombre + " " + est.apellido + " " + est.segundoApellido) === nombre);
+    
+    return(
+        <Box
+        sx={{
+            backgroundColor:'white', 
+              position:'absolute', 
+              zIndex: 1001, 
+              top:"70px",
+              left:"1000px",
+              height:"400px",
+              width:"400px",
+              borderRadius:'10px',
+              borderColor:'black',
+              border:1,
+              display:'flex',
+              flexDirection:'column',
+              gap:4
+        }}
+        >
+            <Typography variant='h6'>
+                <Box>
+                    Correo Institucional: {estudiante?.mail}
+                    <br/>
+                    Correo Personal: {estudiante?.mailPersonal}
+                    <br/>
+                    Número Celular: {estudiante?.celular}
+                    <br/>
+                    Rut: {estudiante?.rut}
+                    <br/>
+                    Código Carrera: {estudiante?.codigo}
+                    <br/>
+                    Número Resolución: {estudiante?.nroResolucion}
+                    <br/>
+                    Año Ingreso : {estudiante?.agnoIngreso}
+                    <br/>
+                    Año Egreso: {estudiante?.agnoEgreso}
+                    <br/>
+                    Fecha Examen: {estudiante?.fechaExamen} a las {estudiante?.hora}
+                    <br/>
+                    Sede: {estudiante?.sede}
+                    <br/>
+                    Semestre: {estudiante?.semestre}
+                </Box>
+            </Typography>
+            <Box
+            sx={{
+                position:'relative',
+                bottom:'20px',
+                left:'320px'
+
+            }}
+            >
+                <Button
+                onClick={onClose}
+                >
+                    cerrar
+                </Button>
+            </Box>
+                
+        </Box>
+    )
+}
+
 export default Estudiantes;

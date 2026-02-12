@@ -3,7 +3,7 @@ import React from 'react'
 import {Box, Button, Stack, TextField} from '@mui/material';
 import { Typography } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
-import { GridColDef, GridRowsProp } from '@mui/x-data-grid';
+import { GridColDef} from '@mui/x-data-grid';
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Estudiante } from '@/types/estudiante'; 
@@ -19,17 +19,23 @@ import { Secretario } from '@/types/secretario';
 import { Jefatura } from '@/types/jefatura';
 
 interface InformanteContentProps {
-  sede: any;
+  sede: string;
   secretarios: Secretario[];
   jefaturas: Jefatura[];
-  mailProfe: any;
+  mailProfe: string;
+}
+export interface filas{
+  rut: string;
+    Estudiante: string;
+    fecha: string;
+    nota: number | string;
 }
 function InformanteContent({ sede, secretarios, jefaturas, mailProfe }: InformanteContentProps) {
   
   //state para sellecionar fila que se enviará al componente hijo
-  const [filaSeleccionada, setFilaSeleccionada] = useState<any>("");
+  const [filaSeleccionada, setFilaSeleccionada] = useState<filas>();
   //state para las filas de la tabla de informante
-  const [filasInformante, setFilasInformante] = useState<any[]>([]);
+  const [filasInformante, setFilasInformante] = useState<filas[]>([]);
   //state para mostrar componente hijo 
   const [showpaginaGuia, setShowpaginaGuia] = useState(false);
   
@@ -75,7 +81,7 @@ function InformanteContent({ sede, secretarios, jefaturas, mailProfe }: Informan
   }, [jefaturas, sede])
   
   const remitentes = useMemo(() => {
-    const correos: any[] = [];
+    const correos: (Jefatura & Secretario)[] = [];
 
     for(let i = 0; i < secresSede.length; i++){
     correos.push(secresSede[i]);
@@ -94,7 +100,6 @@ function InformanteContent({ sede, secretarios, jefaturas, mailProfe }: Informan
     { field: 'Estudiante', headerName: 'Estudiante', width: 200 },
     { field: 'fecha', headerName: 'Fecha', width:90},
     { field: 'nota', headerName: 'Nota', width:50},
-    { field: 'estado', headerName: 'Estado', width: 90},
     { field: 'gestionamiento', headerName: 'Gestionamiento', width:300, renderCell: (params)=> <Button onClick={() => {
       setShowpaginaGuia(true); 
       setFilaSeleccionada(params.row); 
@@ -113,14 +118,10 @@ function InformanteContent({ sede, secretarios, jefaturas, mailProfe }: Informan
   }
 
   const nuevasFilas = asigsInformante.map(asig => ({
-    rut: asig.id,
-    Estudiante: estudiantes.find(est => est.mail === asig.mailEstudiante)
-                  ? `${estudiantes.find(est => est.mail === asig.mailEstudiante)?.nombre} 
-                  ${estudiantes.find(est => est.mail === asig.mailEstudiante)?.apellido} 
-                  ${estudiantes.find(est => est.mail === asig.mailEstudiante)?.segundoApellido}`
-                  : '-',
+    rut: estudiantes.find(est => est.mail === asig.mailEstudiante)?.rut ?? '---',
+    Estudiante: `${estudiantes.find(est => est.mail === asig.mailEstudiante)?.nombre} ${estudiantes.find(est => est.mail === asig.mailEstudiante)?.apellido} ${estudiantes.find(est => est.mail === asig.mailEstudiante)?.segundoApellido}`,
     fecha: asig.fechaAsignacion,
-    nota: notas.find(not => not.mailEstudiante === asig.mailEstudiante)?.notaGuia ?? '---'
+    nota: notas.find(not => not.mailEstudiante === asig.mailEstudiante)?.notaInformante ?? '---'
   }));
 
   setFilasInformante(nuevasFilas);
@@ -140,6 +141,7 @@ function InformanteContent({ sede, secretarios, jefaturas, mailProfe }: Informan
     },
     [filaSeleccionada]
   );
+  
   return (
     <Box sx={{ p: 3, width: '100%', height: 400 }}>
       <Typography variant='h2'>Sección Informante</Typography>
@@ -165,33 +167,38 @@ function InformanteContent({ sede, secretarios, jefaturas, mailProfe }: Informan
   )
 }
 type PageProps ={
-  fila: any;
+  fila: filas | undefined;
   estudiantes: Estudiante[];
   onGuardar: (notaNueva: number) => void;
   onClose: () => void;
-  correos: any[];
-  mailProfe: any;
+  correos: (Jefatura & Secretario)[];
+  mailProfe: string;
 }
 function PageGestionamiento({ onGuardar, onClose, fila, estudiantes, correos, mailProfe}: PageProps){
+  
   const [nota, setNota] = useState("");
   const [accion, setAccion] = useState("");
   const [mostrarCarga, setMostrarCarga] = useState(false);
   const [individualFileToUpload, setIndividualFileToUpload] = useState<File | null>(null); // State for the file chosen in the modal
   const [tipo, setTipo] = useState("");
   const [ruta, setRuta] = useState("");
-  const [fileInputKey1, setFileInputKey1] = useState('informante'); // <-- Add this state
-
-  const mailEstudiante = estudiantes.find(est => est.rut === fila.rut)?.mail ?? null;
-  if(!mailEstudiante){
+  const [fileInputKey1] = useState('informante'); // <-- Add this state
+  if(!fila){
     return;
   }
+  const mailEstudiante = estudiantes.find(est => (est.nombre + " " + est.apellido + " " + est.segundoApellido) === fila.Estudiante)?.mail ?? null;
+  if(!mailEstudiante){
+    console.log(fila.Estudiante)
+    return;
+  }
+  console.log('encontrado')
   const partMail = mailEstudiante.replace(/[^a-zA-Z0-9]/g, '_');
   const guardar = async (nota: string) => {
   try {
     const valor = Number(nota);
     await axios.patch(`${__url}/notas/actualizar`, {
       mailEstudiante,
-      tipoNota: "notaGuia",
+      tipoNota: "notaInformante",
       valor
     });
     onGuardar(valor);
@@ -218,7 +225,7 @@ function PageGestionamiento({ onGuardar, onClose, fila, estudiantes, correos, ma
       showConfirmButton: false,
     });
   };
-  const subir_descargar_Documento = async (accion: string, tipo: string, ruta: string, e?: React.ChangeEvent<HTMLInputElement>) => {
+  const subir_descargar_Documento = async (accion: string, tipo: string, ruta: string) => {
     if(accion === 'cargar'){
 
       if(!individualFileToUpload){
@@ -250,11 +257,7 @@ function PageGestionamiento({ onGuardar, onClose, fila, estudiantes, correos, ma
                     text: `El académico ${profe.data.nombre} ${profe.data.apellido} ${profe.data.segundoApellido}, subió una Rúbrica para informante`
           });
         }
-      }catch(err: any){
-        console.log(
-          "Error al subir el archivo:",
-          err.response?.data ?? err.message
-        );
+      }catch{
         Swal.fire(
           "Error",
           "Hubo un error al subir el archivo, pruebe nuevamente más tarde.",
@@ -263,7 +266,6 @@ function PageGestionamiento({ onGuardar, onClose, fila, estudiantes, correos, ma
       }
     }else if(accion === 'descargar'){
       try{
-        console.log(`${__url}/${tipo}/${ruta}`)
         const response = await axios.get(`${__url}/${tipo}/${ruta}`,
           {responseType:'blob'}
         );
@@ -286,7 +288,7 @@ function PageGestionamiento({ onGuardar, onClose, fila, estudiantes, correos, ma
         window.URL.revokeObjectURL(url); // buena práctica
     
         Swal.fire("Descargado", "Archivo descargado correctamente", "success");
-      } catch (error) {
+      } catch{
         Swal.fire(
           "ERROR",
           "El archivo no se ha subido a la base de datos",
@@ -415,6 +417,7 @@ function PageGestionamiento({ onGuardar, onClose, fila, estudiantes, correos, ma
         }}
         >
           <Button
+          startIcon={<SendIcon />}
             onClick={() => {
             setAccion('descargar');
             setTipo('informante');

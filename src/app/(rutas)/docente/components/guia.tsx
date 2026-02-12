@@ -1,10 +1,10 @@
 "use client";
-import { useEffect, useState, useMemo, use} from "react";
+import { useEffect, useState, useMemo} from "react";
 import React from 'react'
 import { Box, Button, Stack, TextField} from '@mui/material'; // Added Select, MenuItem, FormControl, InputLabel
 import { Typography } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
-import { GridColDef, GridRowsProp } from '@mui/x-data-grid';
+import { GridColDef} from '@mui/x-data-grid';
 import { Asignacion } from '@/types/asignacion';
 import axios from 'axios';
 import __url from '@/lib/const';
@@ -19,20 +19,25 @@ import { Secretario } from "@/types/secretario";
 import { Jefatura } from "@/types/jefatura";
 
 interface GuiaContentProps {
-  sede: any;
+  sede: string;
   secretarios: Secretario[];
   jefaturas: Jefatura[];
-  mailProfe: any;
+  mailProfe: string;
 }
-
+export interface filas{
+  rut: string;
+    Estudiante: string;
+    fecha: string;
+    nota: number | string;
+}
 function GuiaContent({ sede, secretarios, jefaturas, mailProfe }: GuiaContentProps) {
 
   //state para mostrar componente hijo 
   const [showpaginaGuia, setShowpaginaGuia] = useState(false);
   //state para sellecionar fila que se enviará al componente hijo
-  const [filaSeleccionada, setFilaSeleccionada] = useState<any>("");
+  const [filaSeleccionada, setFilaSeleccionada] = useState<filas>();
   //state para las filas de la tabla de guia
-  const [filasGuia, setFilasGuia] = useState<any[]>([]);
+  const [filasGuia, setFilasGuia] = useState<filas[]>([]);
 
   //states para la descarga de datos desde el back
   const [asignaciones, setAsignaciones] = useState<Asignacion[]>([]);
@@ -75,7 +80,7 @@ function GuiaContent({ sede, secretarios, jefaturas, mailProfe }: GuiaContentPro
   }, [jefaturas, sede]);
   
   const remitentes = useMemo(() => {
-    const correos: any[] = [];
+    const correos: (Secretario & Jefatura)[] = [];
 
     for(let i = 0; i < secresSede.length; i++){
     correos.push(secresSede[i]);
@@ -112,16 +117,12 @@ function GuiaContent({ sede, secretarios, jefaturas, mailProfe }: GuiaContentPro
     }
   
     const nuevasFilas = asigsGuia.map(asig => ({
-      rut: asig.id,
-      Estudiante: estudiantes.find(est => est.mail === asig.mailEstudiante)
-                    ? `${estudiantes.find(est => est.mail === asig.mailEstudiante)?.nombre} 
-                    ${estudiantes.find(est => est.mail === asig.mailEstudiante)?.apellido} 
-                    ${estudiantes.find(est => est.mail === asig.mailEstudiante)?.segundoApellido}`
-                    : '-',
-      fecha: asig.fechaAsignacion,
-      nota: notas.find(not => not.mailEstudiante === asig.mailEstudiante)?.notaGuia ?? '---',
-    }));
-  
+    rut: estudiantes.find(est => est.mail === asig.mailEstudiante)?.rut ?? '---',
+    Estudiante: `${estudiantes.find(est => est.mail === asig.mailEstudiante)?.nombre} ${estudiantes.find(est => est.mail === asig.mailEstudiante)?.apellido} ${estudiantes.find(est => est.mail === asig.mailEstudiante)?.segundoApellido}`,
+    fecha: asig.fechaAsignacion,
+    nota: String(notas.find(not => not.mailEstudiante === asig.mailEstudiante)?.notaGuia) ?? '---'
+  }));
+    
     setFilasGuia(nuevasFilas);
   }, [asigsGuia, estudiantes, notas]);
 
@@ -167,14 +168,15 @@ function GuiaContent({ sede, secretarios, jefaturas, mailProfe }: GuiaContentPro
   )
 }
 type PageProps ={
-  fila: any;
+  fila: filas | undefined;
   estudiantes: Estudiante[];
   onGuardar: (notaNueva: number) => void;
   onClose: () => void;
-  correos: any[];
-  mailProfe: any;
+  correos: (Secretario & Jefatura)[];
+  mailProfe: string;
 }
 function PageGestionamiento({ onGuardar, onClose, fila, estudiantes, correos, mailProfe}: PageProps){
+  
   const [nota, setNota] = useState("");
   const [accion, setAccion] = useState("");
   const [mostrarCarga, setMostrarCarga] = useState(false);
@@ -187,10 +189,15 @@ function PageGestionamiento({ onGuardar, onClose, fila, estudiantes, correos, ma
   const [fileInputKey2, setFileInputKey2] = useState('guia'); // <-- Add this state
   const [tesisVisible, setTesisVisible] = useState(true);
   const [guiaVisible, setGuiaVisible] = useState(true);
-  const mailEstudiante = estudiantes.find(est => est.rut === fila.rut)?.mail ?? null;
+  
+  if(!fila){
+    return;
+  }
+  const mailEstudiante = estudiantes.find(est => (est.nombre + " " + est.apellido + " " + est.segundoApellido) === fila.Estudiante)?.mail ?? null;
   if(!mailEstudiante){
     return;
   }
+  
   const partMail = mailEstudiante.replace(/[^a-zA-Z0-9]/g, '_');
   console.log(partMail)
   const guardar = async (nota: string) => {
@@ -225,7 +232,7 @@ function PageGestionamiento({ onGuardar, onClose, fila, estudiantes, correos, ma
       showConfirmButton: false,
     });
   };
-  const subir_descargar_Documento = async (accion: string, tipo: string, ruta: string, e?: React.ChangeEvent<HTMLInputElement>) => {
+  const subir_descargar_Documento = async (accion: string, tipo: string, ruta: string) => {
     if(accion === 'cargar'){
 
       if(!individualFileToUpload){
@@ -240,7 +247,7 @@ function PageGestionamiento({ onGuardar, onClose, fila, estudiantes, correos, ma
       formData.append("mail", mailEstudiante);
       formData.append("file", individualFileToUpload);
       try{
-        const response = await axios.post(`${__url}/${tipo}/${ruta}`, formData, {
+        await axios.post(`${__url}/${tipo}/${ruta}`, formData, {
           withCredentials: true
         });
         Swal.fire(
@@ -258,11 +265,7 @@ function PageGestionamiento({ onGuardar, onClose, fila, estudiantes, correos, ma
           });
         }
         
-      }catch(err: any){
-        console.log(
-          "Error al subir el archivo:",
-          err.response?.data ?? err.message
-        );
+      }catch{
         Swal.fire(
           "Error",
           "Hubo un error al subir el archivo, pruebe nuevamente más tarde.",
@@ -289,7 +292,7 @@ function PageGestionamiento({ onGuardar, onClose, fila, estudiantes, correos, ma
         window.URL.revokeObjectURL(url); // buena práctica
     
         Swal.fire("Descargado", "Archivo descargado correctamente", "success");
-      } catch (error) {
+      } catch{
         Swal.fire(
           "ERROR",
           "El archivo no se ha subido a la base de datos",

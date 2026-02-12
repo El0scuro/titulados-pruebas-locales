@@ -1,18 +1,15 @@
 "use client"; // Required for client-side components in Next.js App Router
 import CloudDownloadDualColor from '@/app/components/downloadIcon';
 import Backdrop from '@mui/material/Backdrop';
-import { Box, Button, Card, CardActionArea, Paper, Typography, Modal, Select, MenuItem, FormControl, InputLabel, Snackbar } from '@mui/material'; // Added Select, MenuItem, FormControl, InputLabel
-import React, { useEffect, useState } from 'react';
+import { Box, Button, Card, Typography, Modal, Select, MenuItem, FormControl, InputLabel, SelectChangeEvent } from '@mui/material'; // Added Select, MenuItem, FormControl, InputLabel
+import React, { useEffect, useMemo, useState } from 'react';
 import SingleFileUploadButton from '@/app/components/singleFileButton'; // Ensure this path is correct
 import SendIcon from '@mui/icons-material/Send';
-import UploadFileIcon from '@mui/icons-material/Upload'; // Icon for upload action
-import DownloadFileIcon from '@mui/icons-material/Download';
-import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
-import type { GridColDef, GridActionsCellItemProps } from '@mui/x-data-grid';
+import { DataGrid} from '@mui/x-data-grid';
+import type { GridColDef} from '@mui/x-data-grid';
 import axios from 'axios';
 import __url from '@/lib/const';
 import Swal from 'sweetalert2';
-import { useAccessToken } from '../../../context/TokenContext';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import * as XLSX from 'xlsx';
 import { useSearchParams } from 'next/navigation';
@@ -22,13 +19,14 @@ import { Asignacion } from '@/types/asignacion';
 import { Notas } from '@/types/notas';
 function Archivos() {
 
-    const searchParams = useSearchParams();
-    const sede = searchParams.get("sede") ?? "";
-
     const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
     const [profesores, setProfesores] = useState<Profesor[]>([]);
     const [asignaciones, setAsignaciones] = useState<Asignacion[]>([]);
     const [notas, setNotas] = useState<Notas[]>([]);
+
+    const searchParams = useSearchParams();
+    const sede = searchParams.get("sede") ?? "";
+    const [finished, setFinished] = useState(true);
     //Aquí se guardará la plantilla excel
     const [archivoExcel, setArchivoExcel] = useState<File | null>(null);
 
@@ -42,13 +40,12 @@ function Archivos() {
 
     const [individualFileToUpload, setIndividualFileToUpload] = useState<File | null>(null); // State for the file chosen in the modal
 
-    const token = useAccessToken();
-
-    const [fileInputKey, setFileInputKey] = useState(0); // <-- Add this state
-
-    const [rows, setRows] = useState<StudentRow[]>([]);
+    const [fileInputKey] = useState(0); // <-- Add this state
 
     useEffect(() => {
+        if(!finished){
+            return;
+        }
         const datos_todos = async() => {
             const [estRes, proRes, asiRes, notRes] = await Promise.all([
                 axios.get(`${__url}/estudiante/todos`),
@@ -60,9 +57,10 @@ function Archivos() {
             setProfesores(proRes.data);
             setAsignaciones(asiRes.data);
             setNotas(notRes.data);
+            setFinished(false);
         }
         datos_todos();
-    }, []);
+    }, [finished]);
 
     //selecciona el archivo excel y lo guarda en ArchivoExcel
     const handleExcelFileSelect = (file: File | null) => { // Renamed for clarity
@@ -77,7 +75,7 @@ function Archivos() {
     const handleFileDownload = async () => {
   try {
     const response = await axios.get(
-      `${__url}/archivos/archivos_secretaria/download/ficha_estudiantes.xlsx`,
+      `${__url}/secretario/archivos_secretaria/plantilla.xlsx`,
       { responseType: "blob" }
     );
 
@@ -96,6 +94,7 @@ function Archivos() {
 
     Swal.fire("Descargado", "Archivo descargado correctamente", "success");
   } catch (error) {
+    console.log(error);
     Swal.fire(
       "Error",
       "Hubo un error al descargar el archivo",
@@ -116,7 +115,7 @@ function Archivos() {
             const worksheet = workbook.Sheets[sheetName];
 
             const json = XLSX.utils.sheet_to_json(worksheet);
-            const response = await axios.post(`${__url}/estudiante/varios`, json, {
+            await axios.post(`${__url}/estudiante/varios`, json, {
                 withCredentials: true
             })
             
@@ -142,35 +141,15 @@ function Archivos() {
         setIndividualFileToUpload(null); // Reset file on close
         setSelectedStudentIdForUpload(null); // Reset student ID on close
     };
-    
-    interface DataGridProps {
-        rows: StudentRow[];
-        columns: GridColDef<StudentRow>[];
-        pageSizeOptions: number[];
-        initialState: {
-            pagination: {
-                paginationModel: {
-                    pageSize: number;
-                };
-            };
-        };
-        checkboxSelection: boolean;
-        disableRowSelectionOnClick: boolean;
-        getRowId: (row: StudentRow) => string;
-    }
 
     // --- DataGrid Columns and Rows for Manual File Upload Section ---
     interface StudentRow {
-        id: number;
         nombre: string;
         apellido: string;
         segundoApellido: string;
         mail: string;
         rut: string;
-    }
-
-    interface ActionParams {
-        row: StudentRow;
+        sede: string;
     }
 
     const columns: GridColDef<StudentRow>[] = [
@@ -180,55 +159,63 @@ function Archivos() {
         { field: 'segundoApellido', headerName: 'Apellido Materno', width: 130, editable: true },
         { field: 'mail', headerName: 'Correo', width: 200, editable: true },
         { field: 'rut', headerName: 'RUT', width: 120, editable: true },
+        { field: 'sede', headerName: 'Sede', width: 120},
         {
             field: 'actions',
             type: 'actions',
             headerName: 'Acciones',
             width: 120,
-            getActions: (params: ActionParams): React.ReactElement<GridActionsCellItemProps>[] => [
+            renderCell: (params) => (
+                <Box
+                sx={{
+                    display:'flex',
+                    flexDirection:'column',
+                    justifyContent:'center',
+                    height:'100%',
+                }}
+                >
+                    <Button
+                    sx={{display:'flex',
+                        justifyContent:'center',
+                        alignItems:'center',
+                        height:'20px'
+                    }}
+                    onClick={() => handleClickUpload(params.row.mail)}
+                    
+                    >
+                        Subir Documento
+                    </Button>
+                    <Button
+                    sx={{display:'flex',
+                        justifyContent:'center',
+                        alignItems:'center',
+                        height:'20px'
+                    }}
+                    onClick={() => handleClickDownload(params.row.mail)}
+                    >
+                        Bajar Documento
+                    </Button>
+                </Box>
                 
-                <GridActionsCellItem
-                    icon={<UploadFileIcon />}
-                    label="Subir Documento"
-                    onClick={() => handleClickUpload(params.row.mail)} // Simpler click handler
-                    showInMenu
-                />,
-                <GridActionsCellItem
-                    icon={<DownloadFileIcon />}
-                    label="Bajar Documento"
-                    onClick={() => handleClickDownload(params.row.mail)} // Simpler click handler
-                    showInMenu
-                />,
-            ],
+            )
         },
     ];
 
-    const fetchStudents = async () => {
-        try {
-            const response = await axios.get(`${__url}/estudiante/todos`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            console.log(response.data);
-            if (response.data && Array.isArray(response.data)) {
-                setRows(response.data);
-            } else {
-                setRows([]);
+    const filas = useMemo(() => {
+        if(!estudiantes.length) return [];
+        const Filas = estudiantes.filter(est => est.sede === sede).map(est => {
+            return {
+                nombre: est.nombre,
+                segundoNombre: est.segundoNombre,
+                apellido: est.apellido,
+                segundoApellido: est.segundoApellido,
+                mail: est.mail,
+                rut: est.rut,
+                sede: est.sede
             }
-        } catch (error) {
-            console.error('Error fetching students:', error);
-            setRows([]);
-        }
-    };
-
-    React.useEffect(() => {
-        fetchStudents();
-    }, [token]);
-
-    // Button to reload students
-
-    const handleReloadStudents = () => {
-        fetchStudents();
-    };
+        });
+        return Filas
+    }, [estudiantes])
 
     // Handler for the "Subir Documento" button click within DataGrid
     const handleClickUpload = (mail: string) => {
@@ -241,9 +228,9 @@ function Archivos() {
         handleOpenDownloadModal(); // Open the modal
     };
 
-    const handleFileTypeChange = (event: any) => { // Type 'any' for event from Select
-        setSelectedFileType(event.target.value as string);
-    };
+    const handleFileTypeChange = (event: SelectChangeEvent) => {
+  setSelectedFileType(event.target.value);
+};
 
     const handleIndividualFileSelect = (file: File | null) => {
         setIndividualFileToUpload(file);
@@ -260,25 +247,24 @@ function Archivos() {
             formData.append('mail', selectedStudentIdForUpload);
             formData.append('file', individualFileToUpload);
             try {
-                let response: any;
                 switch (selectedFileType){
                 case "ficha":
-                    response = axios.post(`${__url}/${selectedFileType}/ficha_inscripcion`, formData, {
+                    axios.post(`${__url}/${selectedFileType}/ficha_inscripcion`, formData, {
                         withCredentials: true,
                     });
                     break;
                 case "tesis":
-                    response = axios.post(`${__url}/${selectedFileType}/Tesis`, formData, {
+                    axios.post(`${__url}/${selectedFileType}/Tesis`, formData, {
                         withCredentials: true,
                     });
                     break;
                 case "guia":
-                    response = axios.post(`${__url}/${selectedFileType}/rubrica_guia`, formData, {
+                    axios.post(`${__url}/${selectedFileType}/rubrica_guia`, formData, {
                         withCredentials: true,
                     });
                     break;
                 case "informante":
-                    response = axios.post(`${__url}/${selectedFileType}/rubrica_informante`, formData, {
+                    axios.post(`${__url}/${selectedFileType}/rubrica_informante`, formData, {
                         withCredentials: true,
                     });
                     break;
@@ -308,35 +294,20 @@ function Archivos() {
         }
     };
 
-    // Style for the modal content Box
-    const modalStyle = {
-        position: 'absolute' as 'absolute',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        width: 400,
-        bgcolor: 'background.paper',
-        border: '2px solid #000',
-        boxShadow: 24,
-        p: 4,
-        borderRadius: 2,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 2,
-    };
+    
     
     const handleReporteFileDownload = async() => {
         try{
             //datos que se suirán al reporte
             const datos: any[] = [];
             
-            let mailGuia: any;
+            let mailGuia: string;
             let guia;
-            let mailInformante: any;
+            let mailInformante: string;
             let informante;
-            let mailPresidente: any;
+            let mailPresidente: string;
             let presidente;
-            let mailSecretario: any;
+            let mailSecretario: string;
             let secretario;
 
             let notasEstudiante: Notas | undefined;
@@ -347,16 +318,17 @@ function Archivos() {
             let notaFinal;
             for(let i = 0; i < estudiantes.length; i++){
                 //asignaciones del estudiante filtrada por los roles
-                mailGuia = asignaciones.filter(asig => asig.mailEstudiante === estudiantes[i].mail).find(asig => asig.rol === 'guia');
+                
+                mailGuia = asignaciones.filter(asig => asig.mailEstudiante === estudiantes[i].mail).find(asig => asig.rol === 'guia')?.mailProfesor ?? '---';
                 guia = profesores.find(pro => pro.mail === mailGuia)?.nombre + " " + profesores.find(pro => pro.mail === mailGuia)?.apellido + " " + profesores.find(pro => pro.mail === mailGuia)?.segundoApellido;
                 
-                mailInformante = asignaciones.filter(asig => asig.mailEstudiante === estudiantes[i].mail).find(asig => asig.rol === 'informante');
+                mailInformante = asignaciones.filter(asig => asig.mailEstudiante === estudiantes[i].mail).find(asig => asig.rol === 'informante')?.mailProfesor ?? '---';
                 informante = profesores.find(pro => pro.mail === mailInformante)?.nombre + " " + profesores.find(pro => pro.mail === mailInformante)?.apellido + " " + profesores.find(pro => pro.mail === mailInformante)?.segundoApellido;
                 
-                mailPresidente = asignaciones.filter(asig => asig.mailEstudiante === estudiantes[i].mail).find(asig => asig.rol === 'presidente');
+                mailPresidente = asignaciones.filter(asig => asig.mailEstudiante === estudiantes[i].mail).find(asig => asig.rol === 'presidente')?.mailProfesor ?? '---';
                 presidente = profesores.find(pro => pro.mail === mailPresidente)?.nombre + " " + profesores.find(pro => pro.mail === mailPresidente)?.apellido + " " + profesores.find(pro => pro.mail === mailPresidente)?.segundoApellido;
                 
-                mailSecretario = asignaciones.filter(asig => asig.mailEstudiante === estudiantes[i].mail).find(asig => asig.rol === 'secretario');
+                mailSecretario = asignaciones.filter(asig => asig.mailEstudiante === estudiantes[i].mail).find(asig => asig.rol === 'secretario')?.mailProfesor ?? '---';
                 secretario = profesores.find(pro => pro.mail === mailSecretario)?.nombre + " " + profesores.find(pro => pro.mail === mailSecretario)?.apellido + " "  + profesores.find(pro => pro.mail === mailSecretario)?.segundoApellido;
                 
                 //notas del estudiante
@@ -386,8 +358,8 @@ function Archivos() {
                     alumno,
                     rut: estudiantes[i].rut,
                     codCarrera: estudiantes[i].codigo,
-                    ingreso: estudiantes[i].anoEgreso,
-                    egreso: estudiantes[i].anoEgreso,
+                    ingreso: estudiantes[i].agnoEgreso,
+                    egreso: estudiantes[i].agnoEgreso,
                     fechaExamen: estudiantes[i].fechaExamen,
                     horaExamen: estudiantes[i].hora,
                     mailEstudiante: estudiantes[i].mail,
@@ -423,10 +395,10 @@ function Archivos() {
         if (selectedStudentIdForUpload && selectedFileType) {
             const partMail = selectedStudentIdForUpload.replace(/[^a-zA-Z0-9]/g, '_');
             try {
-                let response: any;
-                let blob: any;
-                let url: any;
-                let a: any;
+                let response;
+                let blob;
+                let url;
+                let a;
                 switch (selectedFileType){
                 case 'fichas_inscripcion':
                     
@@ -507,13 +479,12 @@ function Archivos() {
                     title: `Archivo bajado correctamente`
                 })
 
-            } catch (error) {
+            } catch{
                 Swal.fire({
                     icon: 'error',
                     title: 'Error al subir el archivo',
                     text: `No se pudo subir el archivo`,
                 });
-                console.error('Error de red al subir archivo individual:', error);
             }
                         
             handleCloseDownloadModal();
@@ -522,7 +493,7 @@ function Archivos() {
             alert('Por favor, selecciona el tipo de archivo y el archivo a subir.');
         }
         Swal.fire("Descargado", "Archivo descargado correctamente", "success");
-    } catch (error) {
+    } catch{
         Swal.fire(
         "Error",
         "Hubo un error al descargar el archivo",
@@ -598,11 +569,25 @@ function Archivos() {
                 <Typography variant="body1" sx={{ textAlign: 'center', color: 'text.secondary', mb: 2 }}>
                     En esta sección se podrá generar un reporte de los estudiantes que se encuentran en el Sistema de Seminario de Título UV.
                 </Typography>
-                <CardActionArea sx={{ width: '100%', borderRadius: 2, boxShadow: 5, p: 1, mt: 1 }}>
-                    <Typography variant="body1" sx={{ textAlign: 'center', color: 'primary.main', fontWeight: 500 }}>
-                        Descargar reporte de estudiantes
-                    </Typography>
-                </CardActionArea>
+                <Button
+                    variant="contained"
+                    color="success"
+                    startIcon={<SendIcon />}
+                    onClick={handleReporteFileDownload}
+                    sx={{
+                        borderRadius: '8px',
+                        padding: '10px 20px',
+                        fontSize: '1rem',
+                        textTransform: 'none',
+                        boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.1)',
+                        '&:hover': {
+                            boxShadow: '0px 6px 15px rgba(0, 0, 0, 0.2)',
+                        },
+                    }}
+                >
+                    Descargar reporte de estudiantes
+                </Button>
+                
             </Card>
 
             <Card sx={{ mb: 2, p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: 3 }}>
@@ -614,11 +599,11 @@ function Archivos() {
                 </Typography>
                 {/* DataGrid for manual student data entry/view with actions */}
                 <Box sx={{ height: '100%', width: '100%' }}>
-                    <Button onClick={handleReloadStudents} startIcon={<RefreshIcon />}>
+                <Button onClick={() => setFinished(true)} startIcon={<RefreshIcon />}>
                         Recargar Estudiantes
                     </Button>
                     <DataGrid
-                        rows={rows}
+                        rows={filas}
                         columns={columns}
                         pageSizeOptions={[10, 20, 30]}
                         initialState={{
@@ -649,7 +634,21 @@ function Archivos() {
                     },
                 }}
             >
-                <Box sx={modalStyle}>
+                <Box sx={{
+                    position: 'absolute' as 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: 400,
+                    bgcolor: 'background.paper',
+                    border: '2px solid #000',
+                    boxShadow: 24,
+                    p: 4,
+                    borderRadius: 2,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 2,
+                }}>
                     <Typography id="upload-modal-title" variant="h6" component="h2" sx={{ textAlign: 'center', mb: 2 }}>
                         Subir Documento para el Estudiante : {selectedStudentIdForUpload}
                     </Typography>
@@ -715,7 +714,21 @@ function Archivos() {
                     },
                 }}
             >
-                <Box sx={modalStyle}>
+                <Box sx={{
+                    position: 'absolute' as 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: 400,
+                    bgcolor: 'background.paper',
+                    border: '2px solid #000',
+                    boxShadow: 24,
+                    p: 4,
+                    borderRadius: 2,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 2,
+                }}>
                     <Typography id="upload-modal-title" variant="h6" component="h2" sx={{ textAlign: 'center', mb: 2 }}>
                         Bajar Documento de él Estudiante : {selectedStudentIdForUpload}
                     </Typography>

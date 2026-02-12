@@ -5,12 +5,10 @@ import Swal from "sweetalert2";
 import { Box, Dialog, DialogActions, 
         DialogContent, DialogContentText,
         DialogTitle, Button, Typography,
-        TextField,
         Input} from '@mui/material'
 import estilo from "./style.module.css";
 import { useSearchParams } from "next/navigation";
 import __url from "../../../lib/const";
-import { useUser} from '@auth0/nextjs-auth0';
 import { useEffect, useMemo, useState} from 'react';
 import { Estudiante } from "@/types/estudiante";
 import { Secretario } from "@/types/secretario";
@@ -20,11 +18,7 @@ function Page() {
   const searchParams = useSearchParams();
   const mail = searchParams.get("mail");
   const sede = searchParams.get("sede")
-  if(!mail){
-    return;
-  }
   
-  const {user,isLoading} = useUser();
   const [open, setOpen] = useState(false);
   const [open2, setOpen2] = useState(false);
   const [personal, setPersonal] = useState("")
@@ -33,12 +27,16 @@ function Page() {
   const [jefaturas, setJefatura] = useState<Jefatura[]>([]);
   //importo los estudiantes, secretari@s y jefatura
     useEffect(() => {
+    if(!mail){
+      return;
+    }
     const datosImport = async () => {
         try {
+          console.log(mail)
             const [estuRes, secRes, jefRes] = await Promise.all([
               axios.get(`${__url}/estudiante/${mail}`),
-              axios.get(`${__url}/jefatura/todas`),
               axios.get(`${__url}/secretario/todos`),
+              axios.get(`${__url}/jefatura/todas`),
             ]);
             setEstudiante(estuRes.data);
             setSecretaria(secRes.data);
@@ -49,17 +47,17 @@ function Page() {
     };
     datosImport();
   }, []);
-
+  
   const secresSede = useMemo(() => {
       return secretarios.filter(sec => sec.sede === sede);
-  }, [secretarios, sede]);
+  }, []);
     
   const jefasSede = useMemo(() => {
     return jefaturas.filter(jef => jef.sede === sede);
-  }, [jefaturas, sede]);
+  }, []);
   
   const remitentes = useMemo(() => {
-    const correos: any[] = [];
+    const correos: (Jefatura & Secretario)[] = [];
 
     for(let i = 0; i < secresSede.length; i++){
     correos.push(secresSede[i]);
@@ -72,6 +70,12 @@ function Page() {
     return correos;
   }, [secresSede, jefasSede]);
 
+  if(!mail){
+    return;
+  }
+  if(!sede){
+    return;
+  }
   if(!estudiante){
     return null;
   }
@@ -116,7 +120,7 @@ function Page() {
 
 
     try {
-      const response = await axios.post(endpoint, formData, {
+      await axios.post(endpoint, formData, {
         withCredentials: true,
       });
       Swal.fire(
@@ -131,11 +135,7 @@ function Page() {
                   text: `El estudiante ${estudiante.nombre} ${estudiante.apellido} ${estudiante.segundoApellido}, subió su ficha de inscripción`
         });
       }
-    } catch (err:any) {
-      console.log(
-        "Error al subir el archivo:",
-        err.response?.data ?? err.message
-      );
+    } catch {
       Swal.fire(
         "Error",
         "Hubo un error al subir el archivo, pruebe nuevamente más tarde.",
@@ -164,7 +164,7 @@ function Page() {
     window.URL.revokeObjectURL(url); // buena práctica
 
     Swal.fire("Descargado", "Archivo descargado correctamente", "success");
-  } catch (error) {
+  } catch {
     Swal.fire(
       "Error",
       "Hubo un error al descargar el archivo",
@@ -173,17 +173,13 @@ function Page() {
   }
 };
 
-  if(isLoading){
-    return cargando;
-  }
-
   const enviarPersonal = async() => {
     if (!personal || personal.trim() === "") {
     Swal.fire("Error", "Por favor, llene el campo", "error")
     return;
 }
     try{
-      const response = await axios.patch(`${__url}/estudiante/actualizar/${estudiante.rut}`,{
+      await axios.patch(`${__url}/estudiante/actualizar/${estudiante.rut}`,{
         mail: estudiante.mail,
         nombre: estudiante.nombre,
         apellido: estudiante.apellido,
@@ -192,8 +188,8 @@ function Page() {
       })
     Swal.fire("Completado", "Su correo se ha guardado correctamente, muchas gracias", "success");
       
-    }catch(error){
-      console.log(error)
+    }catch{
+
     }
   };
   return (

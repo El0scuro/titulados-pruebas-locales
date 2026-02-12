@@ -1,7 +1,7 @@
 'use client'
-import {Box, Card, Typography, Button, InputLabel, FormControl, Select, MenuItem, SelectChangeEvent, Input} from '@mui/material';
+import {Box, Card, Typography, Button, InputLabel, FormControl, Select, MenuItem, Input} from '@mui/material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo} from 'react';
 import { Asignacion } from '@/types/asignacion';
 import { Estudiante } from '@/types/estudiante';
 import axios from 'axios';
@@ -16,20 +16,25 @@ import { Guia } from '@/types/guias';
 import { Informante } from '@/types/informante';
 import { Tesis } from '@/types/tesis';
 import { Estado } from '@/types/estados';
+export interface filas{
+    id: string;
+    studentName: string;
+    mail: string;
+    estado: string;
+    hora: string;
+    fechaExamen: string;
+}
 
 function Estudiantes() {
-    
+
     const [showPageNota, setShowPageNota] = useState(false);
     const [showPageEstado, setShowPageEstado] = useState(false); 
-    const [filaSeleccionada, setFilaSeleccionada] = useState<any>("");
+    const [showPageExamen, setShowPageExamen] = useState(false);
+    const [filaSeleccionada, setFilaSeleccionada] = useState<filas>();
     //Sede de la secretaria que ingresó
     const searchParams = useSearchParams();
     const sede = searchParams.get("sede");
-    interface filas {
-        rut: string;
-        studentName: string;
-        estado: string;
-    }
+    
     const [asignaciones, setAsignaciones] = useState<Asignacion[]>([]);
     const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
     const [notas, setNotas] = useState<Notas[]>([]);
@@ -58,8 +63,7 @@ function Estudiantes() {
             setInformantes(infoRes.data);
             setTesis(tesRes.data);
             setEstados(estRes.data);
-        } catch (error) {
-            console.log(error);
+        } catch {
         }
     };
     datos_todos();
@@ -80,22 +84,37 @@ function Estudiantes() {
         );
     }, [asignaciones, estusSede]);
 
+    const asigsUnicas = useMemo(() => {
+            const asigUnicas: Asignacion[] = [];
+            for(let i = 0; i < estudiantes.length; i++){
+                const asigsEstu = asignaciones.filter(asig => asig.mailEstudiante === estudiantes[i].mail);
+                if(asigsEstu.length >= 1){
+                    asigUnicas.push(asigsEstu[0]);
+                }
+            }
+            return asigUnicas;
+        }, [asigsSede]);
     //Muestra si el estudiante tiene los documentos y las notas subidas, y revisa si estas ultimas son por encima del 4
-    const docus_notas = (rut: string, rolNota: string) => {
-        const asig = asigsSede.find(asig => asig.id === rut);
+    const docus_notas = (nombreEstu: string, rolNota: string) => {
+        const mailestudiante = estudiantes.find(est => (est.nombre + " " + est.segundoNombre + " " + est.apellido + " " + est.segundoApellido) === nombreEstu)?.mail;
+        if(!mailestudiante){
+            return;
+        }
+        const asig = asigsSede.find(asig => asig.mailEstudiante === mailestudiante);
         if(!asig){
             return "";
         }
         const grupoNotas = notas.find(nota => nota.mailEstudiante === asig.mailEstudiante);
+        
         const notaGuia = grupoNotas?.notaGuia;
         const notaInformante = grupoNotas?.notaInformante
         const notaTesis = grupoNotas?.notaTesis;
         const notaOral = grupoNotas?.notaExamenOral;
         const notaFinal = grupoNotas?.notaFinal;
-        if(!rut){
+        if(!nombreEstu){
             return ""
         }
-        const mailestudiante = estusSede.find(est => est.rut === rut)?.mail ;
+        
         let fila1;
         let fila2;
         let caja;
@@ -105,7 +124,7 @@ function Estudiantes() {
                 if(guia){
                     fila1 = 
                     <Box sx = {{display:'flex', flexDirection:'row', alignItems:'center', width:'50%', }}>
-                        <p className={estilo.p}>Rúbrica Guía: </p>
+                        <p className={estilo.p}>Rúbrica: </p>
                         <MoodTwoToneIcon sx={{color:'green'}}/>
                     </Box>
                     ;
@@ -113,7 +132,7 @@ function Estudiantes() {
                 else{
                     fila1 =
                         <Box sx = {{display:'flex', flexDirection:'row', alignItems:'center', width:'50%', }}>
-                            <p className={estilo.p}>Rúbrica Guía: </p>
+                            <p className={estilo.p}>Rúbrica: </p>
                             <MoodBadTwoToneIcon sx={{color:'red'}}/>
                         </Box>
                     ;
@@ -122,13 +141,13 @@ function Estudiantes() {
                 if(Number(notaGuia) >= 4){
                     fila2 = 
                     <Box sx = {{display:'flex', flexDirection:'row', alignItems:'center', width:'100%', }}>
-                        <p className={estilo.p}>Nota Guía: {notaGuia} </p>
+                        <p className={estilo.p}>Nota: {notaGuia} </p>
                         <MoodTwoToneIcon sx={{color:'green'}}/>
                     </Box>
                 }else if(Number(notaGuia) < 4 || !notaGuia){
                     fila2 = 
                     <Box sx = {{display:'flex', flexDirection:'row', alignItems:'center', width:'100%', }}>
-                        <p className={estilo.p}>Nota Guía: {notaGuia} </p>
+                        <p className={estilo.p}>Nota: {notaGuia} </p>
                         <MoodBadTwoToneIcon sx={{color:'red'}}/>
                     </Box>
                 }
@@ -147,13 +166,12 @@ function Estudiantes() {
                         {fila2}
                     </Box>
                     return caja;
-            break;
             case "notaInformante":
                 const informante = informantes.find(inf => inf.mailEstudiante === mailestudiante)?.nombreArchivo;
                 if(informante){
                     fila1 = 
                     <Box sx = {{display:'flex', flexDirection:'row', alignItems:'center', width:'100%', }}>
-                        <p className={estilo.p}>Rúbrica Informante: </p>
+                        <p className={estilo.p}>Rúbrica: </p>
                         <MoodTwoToneIcon sx={{color:'green'}}/>
                     </Box>
                     ;
@@ -161,7 +179,7 @@ function Estudiantes() {
                 else{
                     fila1 =
                         <Box sx = {{display:'flex', flexDirection:'row', alignItems:'center', width:'50%', }}>
-                            <p className={estilo.p}>Rúbrica Informante: </p>
+                            <p className={estilo.p}>Rúbrica: </p>
                             <MoodBadTwoToneIcon sx={{color:'red'}}/>
                         </Box>
                     ;
@@ -170,13 +188,13 @@ function Estudiantes() {
                 if(Number(notaInformante) >= 4){
                     fila2 = 
                     <Box sx = {{display:'flex', flexDirection:'row', alignItems:'center', width:'100%', }}>
-                        <p className={estilo.p}>Nota informante: {notaInformante} </p>
+                        <p className={estilo.p}>Nota: {notaInformante} </p>
                         <MoodTwoToneIcon sx={{color:'green'}}/>
                     </Box>
                 }else if(Number(notaInformante) < 4 || !notaInformante){
                     fila2 = 
                     <Box sx = {{display:'flex', flexDirection:'row', alignItems:'center', width:'100%', }}>
-                        <p className={estilo.p}>Nota informante: {notaInformante} </p>
+                        <p className={estilo.p}>Nota: {notaInformante} </p>
                         <MoodBadTwoToneIcon sx={{color:'red'}}/>
                     </Box>
                 }
@@ -195,13 +213,13 @@ function Estudiantes() {
                         {fila2}
                     </Box>
                     return caja;
-            break;
+            
             case "notaTesis":
                 const tesi = tesis.find(tes => tes.mailEstudiante === mailestudiante)?.nombreArchivo;
                 if(tesi){
                     fila1 = 
                     <Box sx = {{display:'flex', flexDirection:'row', alignItems:'center', width:'50%', }}>
-                        <p className={estilo.p}>Rúbrica Tesis: </p>
+                        <p className={estilo.p}>Tesis: </p>
                         <MoodTwoToneIcon sx={{color:'green'}}/>
                     </Box>
                     ;
@@ -218,13 +236,13 @@ function Estudiantes() {
                 if(Number(notaTesis) >= 4){
                     fila2 = 
                     <Box sx = {{display:'flex', flexDirection:'row', alignItems:'center', width:'100%', }}>
-                        <p className={estilo.p}>Nota Tesis: {notaTesis} </p>
+                        <p className={estilo.p}>Nota: {notaTesis} </p>
                         <MoodTwoToneIcon sx={{color:'green'}}/>
                     </Box>
                 }else if(Number(notaTesis) < 4 || !notaTesis){
                     fila2 = 
                     <Box sx = {{display:'flex', flexDirection:'row', alignItems:'center', width:'100%', }}>
-                        <p className={estilo.p}>Nota Tesis: {notaTesis} </p>
+                        <p className={estilo.p}>Nota: {notaTesis} </p>
                         <MoodBadTwoToneIcon sx={{color:'red'}}/>
                     </Box>
                 }
@@ -243,7 +261,7 @@ function Estudiantes() {
                         {fila2}
                     </Box>
                     return caja;
-            break;
+            
             case "ficha":
                 const ficha = fichas.find(fic => fic.mailEstudiante === mailestudiante)?.nombreArchivo;
                 if(ficha){
@@ -257,14 +275,14 @@ function Estudiantes() {
                 if(Number(notaOral) >= 4){
                     return(
                         <Box sx = {{display:'flex', flexDirection:'row', alignItems:'center', width:'100%', }}>
-                            <p className={estilo.p}>Nota Defensa: {notaOral} </p>
+                            <p className={estilo.p}>Defensa: {notaOral} </p>
                             <MoodTwoToneIcon sx={{color:'green'}}/>
                         </Box>
                     )
                 }else if(Number(notaOral) < 4 || !notaOral){
                     return( 
                         <Box sx = {{display:'flex', flexDirection:'row', alignItems:'center', width:'100%', }}>
-                            <p className={estilo.p}>Nota Defensa: {notaOral} </p>
+                            <p className={estilo.p}>Defensa: {notaOral} </p>
                             <MoodBadTwoToneIcon sx={{color:'red'}}/>
                         </Box>
                     )
@@ -274,14 +292,14 @@ function Estudiantes() {
                 if(Number(notaFinal) >= 4){
                     return(
                         <Box sx = {{display:'flex', flexDirection:'row', alignItems:'center', width:'100%', }}>
-                            <p className={estilo.p}>Nota Final: {notaFinal} </p>
+                            <p className={estilo.p}>Nota: {notaFinal} </p>
                             <MoodTwoToneIcon sx={{color:'green'}}/>
                         </Box>
                     )
                 }else if(Number(notaFinal) < 4 || !notaFinal){
                     return( 
                         <Box sx = {{display:'flex', flexDirection:'row', alignItems:'center', width:'100%', }}>
-                            <p className={estilo.p}>Nota Final: {notaFinal} </p>
+                            <p className={estilo.p}>Nota: {notaFinal} </p>
                             <MoodBadTwoToneIcon sx={{color:'red'}}/>
                         </Box>
                     )
@@ -293,77 +311,111 @@ function Estudiantes() {
     }
 
     const assignmentColumns: GridColDef<filas>[] = [
-        { field: 'rut', headerName: 'rut', width: 100 },
-        { field: 'studentName', headerName: 'Estudiante', width: 200 },
+    { field: 'id', headerName: 'id', width: 50},
+        { field: 'studentName', headerName: 'Estudiante', width: 100, renderCell: (params) => (
+            <Box style={{ 
+                whiteSpace: 'pre-line',
+                lineHeight: 1.4,
+                display: 'flex',
+                alignItems: 'center',
+                height: '100%',
+            }}>
+                {params.value}
+            </Box>
+            )
+        },
+        { field: 'mail', headerName: 'Correo', width: 100},
         { field: 'estado', headerName: 'Estado', width: 90},
+        { field: 'fechaExamen', headerName: 'Fecha Examen', width: 100},
+        { field: 'hora', headerName: 'Hora Examen', width: 100},
         { field: 'ficha', headerName: 'Ficha Académica', width: 120, renderCell: (params) => {
             return(
                 <Box sx = {{display:'flex', justifyContent:'center', alignItems:'center', width:'100%', height:'100%', gap:3}}>
-                    {docus_notas(params.row.rut, params.field)}
+                    {docus_notas(params.row.studentName, params.field)}
                 </Box>
             )}
         },
-        { field: 'notaGuia', headerName: 'Nota Guía', width: 140, renderCell: (params) => {
+        { field: 'notaGuia', headerName: 'Nota Guía', width: 100, renderCell: (params) => {
             return(
                 <Box sx = {{display:'flex', justifyContent:'center', alignItems:'center', width:'100%', height:'100%', gap:3}}>
-                     
-                    {docus_notas(params.row.rut, params.field)}
+                        
+                    {docus_notas(params.row.studentName, params.field)}
                 </Box>
             )}
         },
-        { field: 'notaInformante', headerName: 'Nota Informante', width: 150, renderCell: (params) => {
+        { field: 'notaInformante', headerName: 'Nota Informante', width: 120, renderCell: (params) => {
             return(
                 <Box sx = {{display:'flex', justifyContent:'center', alignItems:'center', width:'100%', height:'100%', gap:3}}>
-                    {docus_notas(params.row.rut, params.field)}
+                    {docus_notas(params.row.studentName, params.field)}
                 </Box>
             )}
         },
-        { field: 'notaTesis', headerName: 'Nota Tesis', width: 140, renderCell: (params) => {
+        { field: 'notaTesis', headerName: 'Nota Tesis', width: 100, renderCell: (params) => {
             return(
                 <Box sx = {{display:'flex', justifyContent:'center', alignItems:'center', width:'100%', height:'100%', gap:3}}>
-                    {docus_notas(params.row.rut, params.field)}
+                    {docus_notas(params.row.studentName, params.field)}
                 </Box>
             )}
         },
         { field: 'notaExamenOral', headerName: 'Nota Defensa', width: 120, renderCell: (params) => {
             return(
                 <Box sx = {{display:'flex', justifyContent:'center', alignItems:'center', width:'100%', height:'100%', gap:3}}>
-                    {docus_notas(params.row.rut, params.field)}
+                    {docus_notas(params.row.studentName, params.field)}
                 </Box>
             )
         }},
         { field: 'notaFinal', headerName: 'Nota Final', width: 90, renderCell: (params) => {
             return(
                 <Box sx = {{display:'flex', justifyContent:'center', alignItems:'center', width:'100%', height:'100%', gap:3}}>
-                    {docus_notas(params.row.rut, params.field)}
+                    {docus_notas(params.row.studentName, params.field)}
                 </Box>
             )
         }},
-        { field: 'Gestionamiento', headerName: 'Gestionamiento', width: 120, renderCell: (params) => {
+        { field: 'Gestionamiento', headerName: 'Gestionamiento', width: 250, renderCell: (params) => {
             return(
                 <Box
                 sx ={{
                         display:'flex',
                         flexDirection:'column',
                         justifyContent: 'center',
-                        alignItems:'center'
+                        alignItems:'center',
+                        height:'100%'
                     }}
                 >
-                    <Button
-                    onClick={() => 
-                    {
-                        setShowPageNota(true);
-                        setFilaSeleccionada(params.row);
-                    }
-                    }
+                    <Box
+                    sx ={{
+                        display:'flex',
+                        flexDirection:'row',
+                        justifyContent: 'center',
+                        alignItems:'center'
+                    }}
                     >
-                        Cambiar Nota
-                    </Button>
-                    <Button
-                    onClick={() => descargarActa(params.row)}
+                        <Button
+                        onClick={() => 
+                        {
+                            setShowPageNota(true);
+                            setFilaSeleccionada(params.row);
+                        }
+                        }
+                        >
+                            Cambiar Nota
+                        </Button>
+                        <Button
+                        onClick={() => {
+                            setShowPageExamen(true);
+                            setFilaSeleccionada(params.row)
+                        }}>
+                        Fecha examen
+                        </Button>
+                    </Box>
+                    <Box
+                    sx ={{
+                        display:'flex',
+                        flexDirection:'row',
+                        justifyContent: 'center',
+                        alignItems:'center'
+                    }}
                     >
-                        Descargar Acta
-                    </Button>
                     <Button
                     onClick={() => {
                         setShowPageEstado(true);
@@ -372,10 +424,16 @@ function Estudiantes() {
                     >
                         Cambiar Estado
                     </Button>
+                    <Button
+                    onClick={() => descargarActa(params.row)}
+                    >
+                        Descargar Acta
+                    </Button>
+                    </Box>
                 </Box>
             )
         }}
-    ];
+        ];
     const nombreEstudiante = (est: Estudiante | null) => {
         if(!est){
             return "";
@@ -391,17 +449,21 @@ function Estudiantes() {
     }
 
     const filasEstudiantes = useMemo(() => {
-          if (!asigsSede.length) return [];
-          const Filas = asignaciones.map(asig => {
-                const estudiante = estusSede.find(est => est.mail === asig.mailEstudiante);
+          if (!asigsUnicas.length) return [];
+          const Filas = asigsUnicas.map(asig => {
+                const estudiante = estudiantes.find(est => est.mail === asig.mailEstudiante);
                 return {
-                rut: estudiante?.rut ?? "",
+                id: asig.id,
                 studentName: nombreEstudiante(estudiante ?? null),
-                estado: estados.find(est => est.mailEstudiante === asig.mailEstudiante)?.estado ?? '' 
-                }
+                mail: estudiante?.mail ?? '---',
+                estado: estados.find(est => est.mailEstudiante === asig.mailEstudiante)?.estado ?? '',
+                hora: estudiante?.hora ?? 'No establecido',
+                fechaExamen: estudiante?.fechaExamen ?? 'No establecida'
+            }
+            
     });
           return Filas;
-          }, [asignaciones, notas]);
+          }, [asigsUnicas, notas, estados, estudiantes]);
     
     const callActualizado = async(tipoCall: string) => {
         if(!tipoCall){
@@ -417,8 +479,8 @@ function Estudiantes() {
         }
     }
     
-    const descargarActa = async(fila: any) => {
-        const grupoNotas = notas.find(nota => nota.id === fila.rut);
+    const descargarActa = async(fila: filas) => {
+        const grupoNotas = notas.find(nota => nota.mailEstudiante === fila.mail);
         const notaGuia = grupoNotas?.notaGuia;
         const notaInformante = grupoNotas?.notaInformante
         const notaTesis = grupoNotas?.notaTesis;
@@ -451,7 +513,7 @@ function Estudiantes() {
     link.remove();
     }
     return (
-        <Box sx={{ p: 3, width: '100%' }}>
+        <Box sx={{width: '100%' }}>
             <Card sx={{ mb: 3, p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: 3 }}>
                 <Box sx={{ mt: 2, width: '100%' }}>
                     <Typography variant="body1" sx={{ mb: 2 }}>
@@ -474,11 +536,23 @@ function Estudiantes() {
                             ActionAction={() => callActualizado('estado')}
                             />
                         )}
+                        {showPageExamen && (
+                            <ExamenPage
+                            action={() => setShowPageExamen(false)}
+                            fila={filaSeleccionada}
+                            estudiantes={estudiantes}
+                            ActionAction={() => callActualizado('examen')}
+                            />
+                        )}
                         <DataGrid
+                            sx={{
+                                position:'relative',
+                                left:0
+                            }}
                             rows={filasEstudiantes}
                             columns={assignmentColumns}
                             pageSizeOptions={[5, 10, 20]}
-                            getRowId= {(row) => row.rut }
+                            getRowId= {(row) => row.id }
                             rowHeight={100}
                             initialState={{
                                 pagination: {
@@ -496,33 +570,38 @@ function Estudiantes() {
 }
 
 type PageProps = {
-    fila: any;
+    fila: filas | undefined;
     estudiantes: Estudiante[];
     action: () => void;
-    ActionAction: (notaNueva: number, mailEstudiante: string, tipoNota: string) => void;
+    ActionAction: () => void;
 }
 export function ChangePage({action: onClose, fila, estudiantes, ActionAction: ActionAction}: PageProps){
     const [nota, setNota] = useState("");
     const [tipoNota, setTipoNota] = useState("")
-    const mailEstudiante = estudiantes.find(est => est.rut === fila.rut)?.mail ?? null;
+    if(!fila){
+        return;
+    }
+    const nombre = fila.studentName.split("\n")[0] + " " + fila.studentName.split("\n")[1];
+    const mailEstudiante = estudiantes.find(est => (est.nombre + " " + est.segundoNombre + " " + est.apellido + " " + est.segundoApellido) === nombre)?.mail;
+    console.log(mailEstudiante)
     if(!mailEstudiante){
         return null;
     }
     const guardar = async (nota: string) => {
-  try {
-    const valor = Number(nota);
-    await axios.patch(`${__url}/notas/actualizar`, {
-      mailEstudiante,
-      tipoNota: tipoNota,
-      valor
-    });
-    ActionAction(valor, mailEstudiante, tipoNota);
+        try {
+            const valor = Number(nota);
+            await axios.patch(`${__url}/notas/actualizar`, {
+            mailEstudiante,
+            tipoNota: tipoNota,
+            valor
+            });
+            ActionAction();
 
-  } catch (error) {
-    console.error(error);
-    alert("Error al guardar la nota");
-  }
-};
+        } catch (error) {
+            console.error(error);
+            alert("Error al guardar la nota");
+        }
+    };
       return(
         <Box sx={{
               backgroundColor:'white', 
@@ -534,7 +613,7 @@ export function ChangePage({action: onClose, fila, estudiantes, ActionAction: Ac
               width:"450px",
               borderRadius:'10px',
               borderColor:'black',
-              border:1
+              border:1,
             }}>
             <Typography variant='h5' sx={{ mb: 2, textAlign: 'center' }}>
                 Seleccione el tipo de nota que quiere cambiar
@@ -594,7 +673,24 @@ export function ChangePage({action: onClose, fila, estudiantes, ActionAction: Ac
         </Box>
     )
 }
-export function StatePage({action: onClose}: PageProps){
+
+export function StatePage({action: onClose, fila, estudiantes, ActionAction: ActionAction}: PageProps){
+    if(!fila){
+        return;
+    }
+    const nombre = fila.studentName.split("\n")[0] + " " + fila.studentName.split("\n")[1];
+    const mailEstudiante = estudiantes.find(est => (est.nombre + " " + est.segundoNombre + " " + est.apellido + " " + est.segundoApellido) === nombre)?.mail;
+    const guardar = async(estado: string) => {
+        try {
+            await axios.patch(`${__url}/estados/actualizar`, {
+                mailEstudiante,
+                estado
+            });
+            ActionAction();
+        } catch (error) {
+            console.log(error);
+        }
+    }
     return(
         <Box
         sx={{
@@ -607,12 +703,164 @@ export function StatePage({action: onClose}: PageProps){
               width:"450px",
               borderRadius:'10px',
               borderColor:'black',
-              border:1
+              border:1,
+              display:'flex',
+              flexDirection:'column',
+              justifyContent:'center',
+              alignItems:'center',
+              gap:4
             }}
+        >   
+            <Box
+            sx={{
+                display:'flex',
+                justifyContent:'center',
+                alignItems:'center'
+            }}
+            >
+                <Typography variant='h3'>
+                    Escoja el estado
+                </Typography>
+            </Box>
+            <Box
+            sx={{
+                display:'flex',
+                justifyContent:'center',
+                alignItems:'center',
+                flexDirection:'row',
+                gap:3
+            }}
+            >
+                <Button
+                onClick={() => guardar('aceptado')}
+                sx={{
+                    backgroundColor:'green',
+                    color:'white'
+                }}
+                >
+                    Aceptado
+                </Button>
+                <Button
+                onClick={() => guardar('pendiente')}
+                sx={{
+                    backgroundColor:'chocolate',
+                    color:'white'
+                }}
+                >
+                    Pendiente
+                </Button>
+                <Button
+                onClick={() => guardar('rechazado')}
+                sx={{
+                    backgroundColor:'red',
+                    color:'white'
+                }}
+                >
+                    Rechazado
+                </Button>
+            </Box>
+            <Box
+            sx={{
+                position:'relative',
+                left:'170px',
+                top:'20px'
+            }}
+            >   
+                <Button
+                onClick={() => onClose()}
+                >
+                    Cerrar
+                </Button>
+            </Box>
+        </Box>
+    )
+}
+
+export function ExamenPage({action: onClose, fila, estudiantes, ActionAction: ActionAction}: PageProps){
+    
+    const [dia, setDia] = useState("");
+    const [hora, setHora] = useState("");
+    if(!fila){
+        return;
+    }
+    const nombre = fila.studentName.split("\n")[0] + " " + fila.studentName.split("\n")[1];
+    const rutEstu = estudiantes.find(est => (est.nombre + " " + est.segundoNombre + " " + est.apellido + " " + est.segundoApellido) === nombre)?.rut;
+    const estudiante = estudiantes.find(est => (est.nombre + " " + est.segundoNombre + " " + est.apellido + " " + est.segundoApellido) === nombre);
+    if(!nombre){
+        return;
+    }
+    if(!estudiante){
+        return;
+    }
+    const guardar = async() => {
+        try {
+            console.log(estudiante)
+            const diaExa = dia.split("/")[0];
+            const mesExa = dia.split("/")[1];
+            const añoExa = String(new Date().getFullYear());
+            const fechaExamen = diaExa + "/" + mesExa + "/" + añoExa;
+            console.log(rutEstu, "\n", estudiante.rut)
+            await axios.patch(`${__url}/estudiante/actualizar/${estudiante.rut}`,{
+                mail: estudiante.mail,
+                nombre: estudiante.nombre,
+                apellido: estudiante.apellido,
+                rut: estudiante.rut,
+                hora,
+                fechaExamen
+            })
+            ActionAction();
+
+        } catch (error) {
+            console.log(error);
+        }
+    }
+    return(
+        <Box
+        sx={{
+            backgroundColor:'white', 
+              position:'absolute', 
+              zIndex: 1001, 
+              top:"70px",
+              left:"1000px",
+              height:"250px",
+              width:"450px",
+              borderRadius:'10px',
+              borderColor:'black',
+              border:1,
+              display:'flex',
+              flexDirection:'column',
+              justifyContent:'center',
+              alignItems:'center',
+              gap:4
+        }}
         >
-            <h1>
-                aaaaaaaaaaaa
-            </h1>
+            <Typography variant='h5' textAlign={'center'}>
+                Indique fecha y hora del examen del estudiante
+                <br/>
+                {nombre}
+            </Typography>
+            <Box
+            sx={{
+                display:'flex',
+                flexDirection:'row',
+                justifyContent:'center',
+                alignItems:'center',
+                gap:3
+            }}
+            >
+               <Input 
+                placeholder='Ejemplo: 05/06'
+                inputProps={{ style: { textAlign: 'center' } }}
+                value={dia}
+                onChange={(e) => setDia(e.target.value)}
+                /> 
+                <Input
+                placeholder='Ejemplos: 15:45 , 09:20'
+                value={hora}
+                onChange={(e) => setHora(e.target.value)}
+                inputProps={{style: {width:'160px'}}}
+                />
+            </Box>
             <Box
             sx={{
                 display:'flex',
@@ -621,16 +869,19 @@ export function StatePage({action: onClose}: PageProps){
                 alignItems:'center',
                 gap:2
             }}
-            >   
-                <Button>
-                    Guardar
+            >
+                <Button
+                onClick={guardar}
+                >
+                    guardar
                 </Button>
                 <Button
-                onClick={() => onClose()}
+                onClick={onClose}
                 >
-                    Cerrar
+                    cerrar
                 </Button>
             </Box>
+            
         </Box>
     )
 }

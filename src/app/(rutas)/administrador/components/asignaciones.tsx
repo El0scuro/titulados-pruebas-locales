@@ -11,22 +11,17 @@ import __url from '@/lib/const';
 import { Estudiante } from '@/types/estudiante';
 import { Profesor } from '@/types/profesor';
 import { Asignacion } from '@/types/asignacion';
-import { Estado } from '@/types/estados';
-import { useSearchParams } from 'next/navigation';
+
+import { Tesis } from '@/types/tesis';
 
 function Asignaciones() {
-
-    //Sede de la secretaria que ingresó
-    const searchParams = useSearchParams();
-    const sede = searchParams.get("sede");
 
     const [viewValue, setViewValue] = useState<'ver' | 'crear'>('ver');
     const [asignaciones, setAsignaciones] = useState<Asignacion[]>([]);
     const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
     const [profesores, setProfesores] = useState<Profesor[]>([]);
-    const [estados, setEstados] = useState<Estado[]>([]);
     const [finished, setFinished] = useState(true);
-
+    const [tesis, setTesis] = useState<Tesis[]>([]);
     //molde rellenable de la asignación
     const [newAssignment, setNewAssignment] = useState<NewAssignmentState>({
         mailEstudiante: '',
@@ -38,15 +33,15 @@ function Asignaciones() {
     useEffect(() => {
     const datos_todos = async () => {
         try {
-            const [estRes, proRes, estaRes] = await Promise.all([
+            const [estRes, proRes, tesRes] = await Promise.all([
                 axios.get(`${__url}/estudiante/todos`),
                 axios.get(`${__url}/profesor/todos`),
-                axios.get(`${__url}/estados/todos`)
+                axios.get(`${__url}/tesis/todas`)
             ]);
             setEstudiantes(estRes.data);
             setProfesores(proRes.data);
-            setEstados(estaRes.data);
-            
+            setTesis(tesRes.data);
+
         } catch (error) {
             console.log(error);
         }
@@ -71,45 +66,19 @@ function Asignaciones() {
         };
         Asignaciones();
     }, [finished]);
-
-    //filtro a los profesores y los estudiantes por la sede del secretario (valpo/santiago)
-    const estusSede = useMemo(
-    () => estudiantes.filter(est => est.sede === sede),
-    [estudiantes, sede]
-    );
-
-    const profeSede = useMemo(
-    () => profesores.filter(pro => pro.sede === sede),
-    [profesores, sede]
-    );
-
-    //filtro las asignaciones que tengan a los profesores de la misma sede del secretario
-    const asigs = useMemo(() => {
-        if (!asignaciones.length || !profeSede.length) return [];
-
-        return asignaciones.filter(asig =>
-            profeSede.some(pro => pro.mail === asig.mailProfesor)
-        );
-    }, [asignaciones, profeSede]);
-
     
     const encuentraEstudiante = (asignacion: Asignacion)=>{
-        const estudiante = estusSede.find(est => est.mail === asignacion.mailEstudiante)?.nombre
-        + " " + estusSede.find(est => est.mail === asignacion.mailEstudiante)?.apellido
-        + " " + estusSede.find(est => est.mail === asignacion.mailEstudiante)?.segundoApellido;
+        const estudiante = estudiantes.find(est => est.mail === asignacion.mailEstudiante)?.nombre
+        + " " + estudiantes.find(est => est.mail === asignacion.mailEstudiante)?.apellido
+        + " " + estudiantes.find(est => est.mail === asignacion.mailEstudiante)?.segundoApellido;
         return estudiante;
     }
     const encuentraProfe = (asignacion: Asignacion)=>{
-        const profe = profeSede.find(pro => pro.mail === asignacion.mailProfesor)?.nombre
-        + " " +  profeSede.find(pro => pro.mail === asignacion.mailProfesor)?.apellido
-        + " " + profeSede.find(pro => pro.mail === asignacion.mailProfesor)?.segundoApellido;
+        const profe = profesores.find(pro => pro.mail === asignacion.mailProfesor)?.nombre
+        + " " +  profesores.find(pro => pro.mail === asignacion.mailProfesor)?.apellido
+        + " " + profesores.find(pro => pro.mail === asignacion.mailProfesor)?.segundoApellido;
         return profe;
     }
-    const encuentraEstado = (asignacion: Asignacion) => {
-        const esta = estados.find(est => est.mailEstudiante === asignacion.mailEstudiante)
-        return esta?.estado;
-    }
-    
 
     // --- DataGrid for "Visualizar asignaciones" ---
     interface filas {
@@ -120,34 +89,33 @@ function Asignaciones() {
     }
     //filas de asignaciones
     const filas = useMemo(() => {
-        if (!asigs.length) return [];
+        if (!asignaciones.length) return [];
         
-        return asigs.map(asig => ({
+        return asignaciones.map(asig => ({
             id: asig.id,
             studentName: encuentraEstudiante(asig) ?? '-',
             professorName: encuentraProfe(asig) ?? '-',
-            rol: asig.rol,
-            status: encuentraEstado(asig) ?? '-',
+            rol: asig.rol
         }));
-        }, [asigs, estusSede, profeSede]);
+        }, [asignaciones, estudiantes, profesores]);
     
 
-        const profeMail = (nombre: string) => {
+    const profeMail = (nombre: string) => {
 
-            if(!nombre){
-                return;
-            }
-            const name = nombre.split(" ");
-            const profe = profeSede.find(pro => pro.nombre === name[0])?.mail
-            return profe;
+        if(!nombre){
+            return;
         }
-        const estuMail = (nombre: string) => {
-            if(!nombre){
-                return;
-            }
-            const name = nombre.split(" ");
-            return estusSede.find(est => est.nombre === name[0])?.mail
+        const name = nombre.split(" ");
+        const profe = profesores.find(pro => pro.nombre === name[0])?.mail
+        return profe;
+    }
+    const estuMail = (nombre: string) => {
+        if(!nombre){
+            return;
         }
+        const name = nombre.split(" ");
+        return estudiantes.find(est => est.nombre === name[0])?.mail
+    }
     const enviarCorreo = async(parametros: filas) => {
         const mailEstu = estuMail(parametros.studentName);
         if(!mailEstu){
@@ -185,7 +153,7 @@ function Asignaciones() {
                 break;
             case 'informante':
                 rutas.push(`archivos_Tesis`);
-                archivos.push(`${partMail}-documento_tesis.docx`);
+                archivos.push(`${tesis.find(tesis => tesis.mailEstudiante === mailEstu)?.nombreArchivo}`);
                 rutas.push('fichas_inscripcion');
                 archivos.push(`${partMail}-Formulario_Inscripcion_Seminario_de_Titulo.docx`);
                 text = `
@@ -208,38 +176,38 @@ function Asignaciones() {
     }    
     //columnas de asignaciones
     const assignmentColumns: GridColDef<filas>[] = [
-            { field: 'id', headerName: 'Id', width: 70 },
-            { field: 'studentName', headerName: 'Estudiante', width: 200 },
-            { field: 'professorName', headerName: 'Profesor', width: 200 },
-            { field: 'rol', headerName: 'Rol', width: 250 }, 
-            {field: 'eliminar', headerName: 'ACCIONES', width: 300, renderCell: (params)=>(
-                <Box display="flex" gap={1} alignItems="center">
-                    <Button 
+        { field: 'id', headerName: 'Id', width: 70 },
+        { field: 'studentName', headerName: 'Estudiante', width: 200 },
+        { field: 'professorName', headerName: 'Profesor', width: 200 },
+        { field: 'rol', headerName: 'Rol', width: 250 }, 
+        {field: 'eliminar', headerName: 'ACCIONES', width: 300, renderCell: (params)=>(
+            <Box display="flex" gap={1} alignItems="center">
+                <Button 
+                size='small'
+                onClick={() => eliminarFila(params.row.id)}
+                >
+                    eliminar
+                </Button>
+                <Box  >
+                    <Button
+                    onClick={() => enviarCorreo(params.row)}
                     size='small'
-                    onClick={() => eliminarFila(params.row.id)}
+                    sx={{
+                        textDecoration:'none',
+                        display:'flex',
+                        alignItems:'center',
+                        justifyContent:'center'
+                    }}
                     >
-                        eliminar
-                    </Button>
-                    <Box  >
-                        <Button
-                        onClick={() => enviarCorreo(params.row)}
-                        size='small'
-                        sx={{
-                            textDecoration:'none',
-                            display:'flex',
-                            alignItems:'center',
-                            justifyContent:'center'
-                        }}
-                        >
-                            Notificar Profesor
-                            
-                        </Button>
+                        Notificar Profesor
                         
-                    </Box>
+                    </Button>
                     
                 </Box>
-            )}
-        ];
+                
+            </Box>
+        )}
+    ];
     
     // --- State for "Generar asignación" form ---
     interface NewAssignmentState {
@@ -261,6 +229,7 @@ function Asignaciones() {
 
     //envía la asignación a la db local
     const handleSubmitAssignment = async () => {
+        
         // Validate required fields
         if (!newAssignment.mailEstudiante || !newAssignment.mailProfesor || !newAssignment.rol) {
             alert('Por favor, completa todos los campos requeridos para la asignación (Estudiante, Profesor, Rol).');
@@ -273,12 +242,12 @@ function Asignaciones() {
             const estuMail = estudiantes.find(est => est.mail === newAssignment.mailEstudiante)?.nombre
                 + " " + estudiantes.find(est => est.mail === newAssignment.mailEstudiante)?.apellido
                 + " " + estudiantes.find(est => est.mail === newAssignment.mailEstudiante)?.segundoApellido;
-                console.log(newAssignment)
+            console.log(newAssignment)
             await axios.post(
                 `${__url}/asignaciones/crear`,
                 newAssignment
             );
-            alert('Asignación generada exitosamente (simulado)!');
+            alert('Asignación generada exitósamente!');
             const partMail = newAssignment.mailEstudiante.replace(/[^a-zA-Z0-9]/g, '_');
             const rutas: string[] = [];
             const archivos: string[] = [];
@@ -286,7 +255,7 @@ function Asignaciones() {
             switch (newAssignment.rol){
                 case 'guia':
                     rutas.push(`archivos_guia`);
-                    archivos.push(`Rubrica_Guia.docx`);
+                    archivos.push(`${partMail}-Rubrica_Guia.docx`);
                     rutas.push('fichas_inscripcion');
                     archivos.push(`${partMail}-Formulario_Inscripcion_Seminario_de_Titulo.docx`);
                     text = `
@@ -306,7 +275,7 @@ function Asignaciones() {
                     break;
                 case 'informante':
                     rutas.push(`archivos_Tesis`);
-                    archivos.push(`${partMail}-documento_tesis.docx`);
+                    archivos.push(`${tesis.find(tesis => tesis.mailEstudiante === newAssignment.mailEstudiante)?.nombreArchivo}`);
                     rutas.push('fichas_inscripcion');
                     archivos.push(`${partMail}-Formulario_Inscripcion_Seminario_de_Titulo.docx`);
                     text = `
@@ -338,14 +307,13 @@ function Asignaciones() {
             archivos.splice(0, archivos.length);
             setFinished(true);
             
-        } catch (error: any) {
-            console.log('Error completo:', error.response?.data);
+        } catch{
         }
     };
 
-    //borrar fila por rut
-    const eliminarFila = async (rut: string) => {
-    await axios.delete(`${__url}/asignaciones/borrar/${rut}`);
+    //borrar fila por id
+    const eliminarFila = async (id: string) => {
+    await axios.delete(`${__url}/asignaciones/borrar/${id}`);
     setFinished(true); // fuerza recarga desde el backend
     };
 
@@ -376,7 +344,7 @@ function Asignaciones() {
                             <DataGrid
                                 rows={filas}
                                 columns={assignmentColumns}
-                                getRowId= {(row) => row.id }
+                                getRowId= {(row) => row.id}
                                 pageSizeOptions={[5, 10, 20]}
                                 initialState={{
                                     pagination: {
@@ -410,7 +378,7 @@ function Asignaciones() {
                                     onChange={handleSelectChange} // Use generic handler
                                 >
                                     <MenuItem value=""><em>Selecciona un estudiante</em></MenuItem>
-                                    {estusSede.map(student => (
+                                    {estudiantes.map(student => (
                                         <MenuItem key={student.rut} value={student.mail}>
                                             {student.nombre + " " + student.apellido + " " + student.segundoApellido}
                                         </MenuItem>
@@ -429,7 +397,7 @@ function Asignaciones() {
                                     onChange={handleSelectChange} // Use generic handler
                                 >
                                     <MenuItem value=""><em>Selecciona un profesor</em></MenuItem>
-                                    {profeSede.map(professor => (
+                                    {profesores.map(professor => (
                                         <MenuItem key={professor.nombre} value={professor.mail}>
                                             {professor.nombre + " " + professor.apellido + " " + professor.segundoApellido}
                                         </MenuItem>

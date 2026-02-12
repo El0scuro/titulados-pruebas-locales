@@ -6,7 +6,6 @@ interface Props extends SvgIconProps {
 }
 
 export default function CloudDownloadDualColor({
-  arrowColor = 'red',
   ...props
 }: Props) {
   return (

@@ -1,10 +1,11 @@
 "use client"; // Required for client-side components in Next.js App Router
 import CloudDownloadDualColor from '@/app/components/downloadIcon';
 import Backdrop from '@mui/material/Backdrop';
-import { Box, Button, Card, Typography, Modal, Select, MenuItem, FormControl, InputLabel, SelectChangeEvent } from '@mui/material'; // Added Select, MenuItem, FormControl, InputLabel
+import { Box, Button, Card, Typography, Modal, Select, MenuItem, FormControl, InputLabel, SelectChangeEvent} from '@mui/material'; // Added Select, MenuItem, FormControl, InputLabel
 import React, { useEffect, useMemo, useState } from 'react';
 import SingleFileUploadButton from '@/app/components/singleFileButton'; // Ensure this path is correct
 import SendIcon from '@mui/icons-material/Send';
+
 import { DataGrid} from '@mui/x-data-grid';
 import type { GridColDef} from '@mui/x-data-grid';
 import axios from 'axios';
@@ -12,21 +13,18 @@ import __url from '@/lib/const';
 import Swal from 'sweetalert2';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import * as XLSX from 'xlsx';
-import { useSearchParams } from 'next/navigation';
 import { Estudiante } from '@/types/estudiante';
 import { Profesor } from '@/types/profesor';
 import { Asignacion } from '@/types/asignacion';
 import { Notas } from '@/types/notas';
+import { Tesis } from '@/types/tesis';
 function Archivos() {
 
     const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
     const [profesores, setProfesores] = useState<Profesor[]>([]);
     const [asignaciones, setAsignaciones] = useState<Asignacion[]>([]);
     const [notas, setNotas] = useState<Notas[]>([]);
-
-    const searchParams = useSearchParams();
-    const sede = searchParams.get("sede") ?? "";
-    const [finished, setFinished] = useState(true);
+    const [tesis, setTesis] = useState<Tesis[]>([]);
     //Aquí se guardará la plantilla excel
     const [archivoExcel, setArchivoExcel] = useState<File | null>(null);
 
@@ -41,22 +39,26 @@ function Archivos() {
     const [individualFileToUpload, setIndividualFileToUpload] = useState<File | null>(null); // State for the file chosen in the modal
 
     const [fileInputKey] = useState(0); // <-- Add this state
+    
+    const [finished, setFinished] = useState(true);
 
     useEffect(() => {
         if(!finished){
             return;
         }
         const datos_todos = async() => {
-            const [estRes, proRes, asiRes, notRes] = await Promise.all([
+            const [estRes, proRes, asiRes, notRes, tesRes] = await Promise.all([
                 axios.get(`${__url}/estudiante/todos`),
                 axios.get(`${__url}/profesor/todos`),
                 axios.get(`${__url}/asignaciones/todas`),
-                axios.get(`${__url}/notas/todas`)
+                axios.get(`${__url}/notas/todas`),
+                axios.get(`${__url}/tesis/todas`)
             ]);
             setEstudiantes(estRes.data);
             setProfesores(proRes.data);
             setAsignaciones(asiRes.data);
             setNotas(notRes.data);
+            setTesis(tesRes.data);
             setFinished(false);
         }
         datos_todos();
@@ -203,7 +205,7 @@ function Archivos() {
 
     const filas = useMemo(() => {
         if(!estudiantes.length) return [];
-        const Filas = estudiantes.filter(est => est.sede === sede).map(est => {
+        const Filas = estudiantes.map(est => {
             return {
                 nombre: est.nombre,
                 segundoNombre: est.segundoNombre,
@@ -247,6 +249,7 @@ function Archivos() {
             formData.append('mail', selectedStudentIdForUpload);
             formData.append('file', individualFileToUpload);
             try {
+                
                 switch (selectedFileType){
                 case "ficha":
                     axios.post(`${__url}/${selectedFileType}/ficha_inscripcion`, formData, {
@@ -293,14 +296,12 @@ function Archivos() {
             alert('Por favor, selecciona el tipo de archivo y el archivo a subir.');
         }
     };
-
-    
     
     const handleReporteFileDownload = async() => {
         try{
             //datos que se suirán al reporte
             const datos: any[] = [];
-            
+
             let mailGuia: string;
             let guia;
             let mailInformante: string;
@@ -309,16 +310,20 @@ function Archivos() {
             let presidente;
             let mailSecretario: string;
             let secretario;
-
+            
             let notasEstudiante: Notas | undefined;
             let notaGuia;
             let notaInformante;
             let notaTesis;
             let notaDefensa;
             let notaFinal;
+
+            let tesisEstudiante;
+
+            let fechaExamen;
+            let horaExamen;
             for(let i = 0; i < estudiantes.length; i++){
                 //asignaciones del estudiante filtrada por los roles
-                
                 mailGuia = asignaciones.filter(asig => asig.mailEstudiante === estudiantes[i].mail).find(asig => asig.rol === 'guia')?.mailProfesor ?? '---';
                 guia = profesores.find(pro => pro.mail === mailGuia)?.nombre + " " + profesores.find(pro => pro.mail === mailGuia)?.apellido + " " + profesores.find(pro => pro.mail === mailGuia)?.segundoApellido;
                 
@@ -350,24 +355,58 @@ function Archivos() {
                 if(mailSecretario === undefined){
                     secretario = 'Ninguno';
                 }
+                
+                if(!tesisEstudiante){
+                    tesisEstudiante = 'No se ha subido'
+                }
+
+                if(!notaGuia){
+                    notaGuia = 1
+                }
+                if(!notaInformante){
+                    notaInformante = 1
+                }
+                if(!notaTesis){
+                    notaTesis = 1
+                }
+                if(!notaDefensa){
+                    notaDefensa = 1
+                }
+                if(!notaFinal){
+                    notaFinal = 1
+                }
+                fechaExamen = estudiantes[i].fechaExamen;
+                horaExamen = estudiantes[i].hora;
+                if(!fechaExamen){
+                    fechaExamen = 'No establecida aún'
+                }
+                if(!horaExamen){
+                    horaExamen = 'No establecida aún'
+                }
                 const numero = i + 1;
                 const alumno = estudiantes[i].nombre + " " + estudiantes[i].segundoNombre + " " + estudiantes[i].apellido + " " + estudiantes[i].segundoApellido;
+                tesisEstudiante = tesis.find(tes => tes.mailEstudiante === estudiantes[i].mail)?.nombreArchivo;
+                if(!tesisEstudiante){
+                    tesisEstudiante = 'No se ha subido'
+                }
+                
                 datos.push({
                     numero,
                     semestre: estudiantes[i].semestre,
                     alumno,
                     rut: estudiantes[i].rut,
                     codCarrera: estudiantes[i].codigo,
-                    ingreso: estudiantes[i].agnoEgreso,
+                    ingreso: estudiantes[i].agnoIngreso,
                     egreso: estudiantes[i].agnoEgreso,
-                    fechaExamen: estudiantes[i].fechaExamen,
-                    horaExamen: estudiantes[i].hora,
+                    fechaExamen,
+                    horaExamen,
                     mailEstudiante: estudiantes[i].mail,
                     celular: estudiantes[i].celular,
                     guia,
                     informante,
                     presidente,
                     secretario,
+                    tesis: tesisEstudiante,
                     notaGuia,
                     notaInformante,
                     notaTesis,
@@ -479,12 +518,13 @@ function Archivos() {
                     title: `Archivo bajado correctamente`
                 })
 
-            } catch{
+            } catch (error) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Error al subir el archivo',
                     text: `No se pudo subir el archivo`,
                 });
+                console.error('Error de red al subir archivo individual:', error);
             }
                         
             handleCloseDownloadModal();
@@ -493,7 +533,8 @@ function Archivos() {
             alert('Por favor, selecciona el tipo de archivo y el archivo a subir.');
         }
         Swal.fire("Descargado", "Archivo descargado correctamente", "success");
-    } catch{
+    } catch (error) {
+        console.log(error)
         Swal.fire(
         "Error",
         "Hubo un error al descargar el archivo",
@@ -569,25 +610,24 @@ function Archivos() {
                 <Typography variant="body1" sx={{ textAlign: 'center', color: 'text.secondary', mb: 2 }}>
                     En esta sección se podrá generar un reporte de los estudiantes que se encuentran en el Sistema de Seminario de Título UV.
                 </Typography>
-                <Button
-                    variant="contained"
-                    color="success"
-                    startIcon={<SendIcon />}
-                    onClick={handleReporteFileDownload}
-                    sx={{
-                        borderRadius: '8px',
-                        padding: '10px 20px',
-                        fontSize: '1rem',
-                        textTransform: 'none',
-                        boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.1)',
-                        '&:hover': {
-                            boxShadow: '0px 6px 15px rgba(0, 0, 0, 0.2)',
-                        },
-                    }}
-                >
-                    Descargar reporte de estudiantes
-                </Button>
-                
+                        <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<SendIcon />}
+                            onClick={handleReporteFileDownload}
+                            sx={{
+                                borderRadius: '8px',
+                                padding: '10px 20px',
+                                fontSize: '1rem',
+                                textTransform: 'none',
+                                boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.1)',
+                                '&:hover': {
+                                    boxShadow: '0px 6px 15px rgba(0, 0, 0, 0.2)',
+                                },
+                            }}
+                        >
+                            Descargar reporte de estudiantes
+                        </Button>
             </Card>
 
             <Card sx={{ mb: 2, p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: 3 }}>
@@ -599,7 +639,7 @@ function Archivos() {
                 </Typography>
                 {/* DataGrid for manual student data entry/view with actions */}
                 <Box sx={{ height: '100%', width: '100%' }}>
-                <Button onClick={() => setFinished(true)} startIcon={<RefreshIcon />}>
+                    <Button onClick={() => setFinished(true)} startIcon={<RefreshIcon />}>
                         Recargar Estudiantes
                     </Button>
                     <DataGrid

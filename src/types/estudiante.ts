@@ -6,8 +6,8 @@ export interface Estudiante{
     segundoApellido: string;
     rut: string;
     codigo: string;
-    anoIngreso: number;
-    anoEgreso: number;
+    agnoIngreso: number;
+    agnoEgreso: number;
     nroResolucion: string;
     hora: string;
     fechaExamen: string;
@@ -16,5 +16,4 @@ export interface Estudiante{
     mailPersonal: string;
     celular: string;
     semestre: string;
-    nombreTesis: string;
 }

@@ -7,7 +7,7 @@ interface AlertProps {
   message: React.ReactNode;
 }
 
-export default function Alert({ type, message }: AlertProps) {
+export default function Alert({message }: AlertProps) {
   return (
     <div className={estilo.structure}>
       {message}
