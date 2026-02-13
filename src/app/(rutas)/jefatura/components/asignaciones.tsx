@@ -13,6 +13,7 @@ import { Profesor } from '@/types/profesor';
 import { Asignacion } from '@/types/asignacion';
 import { Estado } from '@/types/estados';
 import { useSearchParams } from 'next/navigation';
+import { Tesis } from '@/types/tesis';
 
 function Asignaciones() {
 
@@ -25,6 +26,7 @@ function Asignaciones() {
     const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
     const [profesores, setProfesores] = useState<Profesor[]>([]);
     const [estados, setEstados] = useState<Estado[]>([]);
+    const [tesis, setTesis] = useState<Tesis[]>([]);
     const [finished, setFinished] = useState(true);
 
     //molde rellenable de la asignación
@@ -38,14 +40,16 @@ function Asignaciones() {
     useEffect(() => {
     const datos_todos = async () => {
         try {
-            const [estRes, proRes, estaRes] = await Promise.all([
+            const [estRes, proRes, estaRes, tesiRes] = await Promise.all([
                 axios.get(`${__url}/estudiante/todos`),
                 axios.get(`${__url}/profesor/todos`),
-                axios.get(`${__url}/estados/todos`)
+                axios.get(`${__url}/estados/todos`),
+                axios.get(`${__url}/tesis/todas`)
             ]);
             setEstudiantes(estRes.data);
             setProfesores(proRes.data);
             setEstados(estaRes.data);
+            setTesis(tesiRes.data);
             
         } catch (error) {
             console.log(error);
@@ -129,25 +133,25 @@ function Asignaciones() {
             rol: asig.rol,
             status: encuentraEstado(asig) ?? '-',
         }));
-        }, [asigs, estusSede, profeSede]);
+    }, [asigs, estusSede, profeSede]);
     
 
-        const profeMail = (nombre: string) => {
+    const profeMail = (nombre: string) => {
 
-            if(!nombre){
-                return;
-            }
-            const name = nombre.split(" ");
-            const profe = profeSede.find(pro => pro.nombre === name[0])?.mail
-            return profe;
+        if(!nombre){
+            return;
         }
-        const estuMail = (nombre: string) => {
-            if(!nombre){
-                return;
-            }
-            const name = nombre.split(" ");
-            return estusSede.find(est => est.nombre === name[0])?.mail
+        const name = nombre.split(" ");
+        const profe = profeSede.find(pro => pro.nombre === name[0])?.mail
+        return profe;
+    }
+    const estuMail = (nombre: string) => {
+        if(!nombre){
+            return;
         }
+        const name = nombre.split(" ");
+        return estusSede.find(est => est.nombre === name[0])?.mail
+    }
     const enviarCorreo = async(parametros: filas) => {
         const mailEstu = estuMail(parametros.studentName);
         if(!mailEstu){
@@ -184,8 +188,12 @@ function Asignaciones() {
                 console.log("aaaa")
                 break;
             case 'informante':
+                const nombre = tesis.find(tes => tes.nombreArchivo.includes(partMail))?.nombreArchivo
+                if(!nombre){
+                    return
+                }
                 rutas.push(`archivos_Tesis`);
-                archivos.push(`${partMail}-documento_tesis.docx`);
+                archivos.push(nombre);
                 rutas.push('fichas_inscripcion');
                 archivos.push(`${partMail}-Formulario_Inscripcion_Seminario_de_Titulo.docx`);
                 text = `
@@ -197,13 +205,15 @@ function Asignaciones() {
                     `
 
                 await axios.post(`${__url}/mail/enviar_adjunto`, {
-                    toMail: `${newAssignment.mailProfesor}`,
+                    toMail: `${mailProfe}`,
                     subject: `Asignación Profesor(a)  ${newAssignment.rol}`,
                     text,
                     rutas,
                     archivos
                 });
                 break;
+            //FALTA DEJAR LOS CORREOS RECORDATORIOS DE SECRETARIO Y PRESIDENTE 
+
         }
     }    
     //columnas de asignaciones
@@ -338,9 +348,7 @@ function Asignaciones() {
             archivos.splice(0, archivos.length);
             setFinished(true);
             
-        } catch (error: any) {
-            console.log('Error completo:', error.response?.data);
-        }
+        } catch {}
     };
 
     //borrar fila por rut

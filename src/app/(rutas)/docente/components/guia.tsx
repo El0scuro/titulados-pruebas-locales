@@ -59,9 +59,7 @@ function GuiaContent({ sede, secretarios, jefaturas, mailProfe }: GuiaContentPro
             setEstudiantes(estRes.data);
             setAsignaciones(asigRes.data);
             setNotas(notaRes.data);
-        } catch (error) {
-            console.log(error);
-        }
+        } catch {}
     };
     datos_todos();
 }, []);
@@ -199,7 +197,7 @@ function PageGestionamiento({ onGuardar, onClose, fila, estudiantes, correos, ma
   }
   
   const partMail = mailEstudiante.replace(/[^a-zA-Z0-9]/g, '_');
-  console.log(partMail)
+ 
   const guardar = async (nota: string) => {
   try {
     const valor = Number(nota);
@@ -210,18 +208,14 @@ function PageGestionamiento({ onGuardar, onClose, fila, estudiantes, correos, ma
     });
     onGuardar(valor);
 
-  } catch (error) {
-    console.error(error);
+  } catch {
+    
     alert("Error al guardar la nota");
   }
   };
   const handleIndividualFileSelect = (file: File | null) => {
         setIndividualFileToUpload(file);
-        if (file) {
-            console.log('Archivo individual seleccionado:', file.name, file);
-        } else {
-            console.log('Archivo individual limpiado.');
-        }
+        
     };
   const cargando = () => {
     Swal.fire({
@@ -232,7 +226,7 @@ function PageGestionamiento({ onGuardar, onClose, fila, estudiantes, correos, ma
       showConfirmButton: false,
     });
   };
-  const subir_descargar_Documento = async (accion: string, tipo: string, ruta: string) => {
+  const subir_descargar_Documento = async (accion: string, tipo: string, ruta?: string) => {
     if(accion === 'cargar'){
 
       if(!individualFileToUpload){
@@ -256,7 +250,7 @@ function PageGestionamiento({ onGuardar, onClose, fila, estudiantes, correos, ma
           "success"
         );
         const profe= await axios.get(`${__url}/profesor/${mailProfe}`);
-        console.log("a", profe)
+        
         for(let i = 0; i < correos.length; i++){
           await axios.post(`${__url}/mail/enviar`, {
                     toMail: `${correos[i].mail}`,
@@ -274,10 +268,19 @@ function PageGestionamiento({ onGuardar, onClose, fila, estudiantes, correos, ma
       }
     }else if(accion === 'descargar'){
       try{
-        console.log(`${__url}/${tipo}/${ruta}`)
-        const response = await axios.get(`${__url}/${tipo}/${ruta}`,
+        let response
+        if(tipo === 'tesis'){
+        response = await axios.get(`${__url}/${tipo}/${mailEstudiante}`,
           {responseType:'blob'}
         );
+        }else if(tipo === 'guia'){
+          response = await axios.get(`${__url}/${tipo}/${ruta}`,
+            {responseType:'blob'}
+          );
+        }
+        if(!response){
+          return;
+        }
         const blob = new Blob([response.data]);
         const url = window.URL.createObjectURL(blob);
     
@@ -507,8 +510,8 @@ function PageGestionamiento({ onGuardar, onClose, fila, estudiantes, correos, ma
             <Button
                 startIcon={<SendIcon />}
                 onClick={() => {
-                  setTipo('tesis');
-                  setRuta(`archivos_Tesis/${partMail}-documento_tesis.docx`);
+                  setTipo('guia');
+                  setRuta(`archivos_guia/${partMail}-documento_guia.docx`);
                   subir_descargar_Documento(accion, tipo, ruta)
                 }}
                 sx={{backgroundColor:'#003C58', color:'white'}}
@@ -519,8 +522,7 @@ function PageGestionamiento({ onGuardar, onClose, fila, estudiantes, correos, ma
                 startIcon={<SendIcon />}
                 onClick={() => {
                   setTipo('tesis');
-                  setRuta(`archivos_Tesis/${partMail}-documento_tesis.docx`);
-                  subir_descargar_Documento(accion, tipo, ruta)
+                  subir_descargar_Documento(accion, tipo)
                 }}
                 sx={{
                   backgroundColor:'#003C58', 

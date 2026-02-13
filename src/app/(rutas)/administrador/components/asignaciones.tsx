@@ -152,8 +152,12 @@ function Asignaciones() {
                 console.log("aaaa")
                 break;
             case 'informante':
+                const nombre = tesis.find(tes => tes.nombreArchivo.includes(partMail))?.nombreArchivo
+                if(!nombre){
+                    return
+                }
                 rutas.push(`archivos_Tesis`);
-                archivos.push(`${tesis.find(tesis => tesis.mailEstudiante === mailEstu)?.nombreArchivo}`);
+                archivos.push(nombre);
                 rutas.push('fichas_inscripcion');
                 archivos.push(`${partMail}-Formulario_Inscripcion_Seminario_de_Titulo.docx`);
                 text = `
@@ -165,13 +169,15 @@ function Asignaciones() {
                     `
 
                 await axios.post(`${__url}/mail/enviar_adjunto`, {
-                    toMail: `${newAssignment.mailProfesor}`,
+                    toMail: `${mailProfe}`,
                     subject: `Asignación Profesor(a)  ${newAssignment.rol}`,
                     text,
                     rutas,
                     archivos
                 });
                 break;
+            //FALTA DEJAR LOS CORREOS RECORDATORIOS DE SECRETARIO Y PRESIDENTE 
+
         }
     }    
     //columnas de asignaciones

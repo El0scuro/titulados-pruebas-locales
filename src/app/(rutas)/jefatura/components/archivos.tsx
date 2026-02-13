@@ -17,12 +17,14 @@ import { Estudiante } from '@/types/estudiante';
 import { Profesor } from '@/types/profesor';
 import { Asignacion } from '@/types/asignacion';
 import { Notas } from '@/types/notas';
+import { Tesis } from '@/types/tesis';
 function Archivos() {
 
     const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
     const [profesores, setProfesores] = useState<Profesor[]>([]);
     const [asignaciones, setAsignaciones] = useState<Asignacion[]>([]);
     const [notas, setNotas] = useState<Notas[]>([]);
+    const [tesis, setTesis] = useState<Tesis[]>([]);
 
     const searchParams = useSearchParams();
     const sede = searchParams.get("sede") ?? "";
@@ -47,16 +49,18 @@ function Archivos() {
             return;
         }
         const datos_todos = async() => {
-            const [estRes, proRes, asiRes, notRes] = await Promise.all([
+            const [estRes, proRes, asiRes, notRes, tesRes] = await Promise.all([
                 axios.get(`${__url}/estudiante/todos`),
                 axios.get(`${__url}/profesor/todos`),
                 axios.get(`${__url}/asignaciones/todas`),
-                axios.get(`${__url}/notas/todas`)
+                axios.get(`${__url}/notas/todas`),
+                axios.get(`${__url}/tesis/todas`)
             ]);
             setEstudiantes(estRes.data);
             setProfesores(proRes.data);
             setAsignaciones(asiRes.data);
             setNotas(notRes.data);
+            setTesis(tesRes.data);
             setFinished(false);
         }
         datos_todos();
@@ -295,12 +299,34 @@ function Archivos() {
     };
 
     
-    
+    interface datos {
+        numero: number;
+        semestre: string;
+        alumno: string; 
+        rut: string;
+        codCarrera: string;
+        ingreso: number;
+        egreso: number;
+        fechaExamen: string;
+        horaExamen: string;
+        mailEstudiante: string;
+        celular: string;
+        guia: string;
+        informante: string;
+        presidente: string;
+        secretario: string;
+        tesis: string;
+        notaGuia: number;
+        notaInformante: number;
+        notaTesis: number;
+        notaDefensa: number;
+        notaFinal: number;
+    }
     const handleReporteFileDownload = async() => {
         try{
             //datos que se suirán al reporte
-            const datos: any[] = [];
-            
+            const datos: datos[] = [];
+
             let mailGuia: string;
             let guia;
             let mailInformante: string;
@@ -309,16 +335,20 @@ function Archivos() {
             let presidente;
             let mailSecretario: string;
             let secretario;
-
+            
             let notasEstudiante: Notas | undefined;
             let notaGuia;
             let notaInformante;
             let notaTesis;
             let notaDefensa;
             let notaFinal;
+
+            let tesisEstudiante;
+
+            let fechaExamen;
+            let horaExamen;
             for(let i = 0; i < estudiantes.length; i++){
                 //asignaciones del estudiante filtrada por los roles
-                
                 mailGuia = asignaciones.filter(asig => asig.mailEstudiante === estudiantes[i].mail).find(asig => asig.rol === 'guia')?.mailProfesor ?? '---';
                 guia = profesores.find(pro => pro.mail === mailGuia)?.nombre + " " + profesores.find(pro => pro.mail === mailGuia)?.apellido + " " + profesores.find(pro => pro.mail === mailGuia)?.segundoApellido;
                 
@@ -350,24 +380,58 @@ function Archivos() {
                 if(mailSecretario === undefined){
                     secretario = 'Ninguno';
                 }
+                
+                if(!tesisEstudiante){
+                    tesisEstudiante = 'No se ha subido'
+                }
+
+                if(!notaGuia){
+                    notaGuia = 1
+                }
+                if(!notaInformante){
+                    notaInformante = 1
+                }
+                if(!notaTesis){
+                    notaTesis = 1
+                }
+                if(!notaDefensa){
+                    notaDefensa = 1
+                }
+                if(!notaFinal){
+                    notaFinal = 1
+                }
+                fechaExamen = estudiantes[i].fechaExamen;
+                horaExamen = estudiantes[i].hora;
+                if(!fechaExamen){
+                    fechaExamen = 'No establecida aún'
+                }
+                if(!horaExamen){
+                    horaExamen = 'No establecida aún'
+                }
                 const numero = i + 1;
                 const alumno = estudiantes[i].nombre + " " + estudiantes[i].segundoNombre + " " + estudiantes[i].apellido + " " + estudiantes[i].segundoApellido;
+                tesisEstudiante = tesis.find(tes => tes.mailEstudiante === estudiantes[i].mail)?.nombreArchivo;
+                if(!tesisEstudiante){
+                    tesisEstudiante = 'No se ha subido'
+                }
+                
                 datos.push({
                     numero,
                     semestre: estudiantes[i].semestre,
                     alumno,
                     rut: estudiantes[i].rut,
                     codCarrera: estudiantes[i].codigo,
-                    ingreso: estudiantes[i].agnoEgreso,
+                    ingreso: estudiantes[i].agnoIngreso,
                     egreso: estudiantes[i].agnoEgreso,
-                    fechaExamen: estudiantes[i].fechaExamen,
-                    horaExamen: estudiantes[i].hora,
+                    fechaExamen,
+                    horaExamen,
                     mailEstudiante: estudiantes[i].mail,
                     celular: estudiantes[i].celular,
                     guia,
                     informante,
                     presidente,
                     secretario,
+                    tesis: tesisEstudiante,
                     notaGuia,
                     notaInformante,
                     notaTesis,
@@ -394,7 +458,7 @@ function Archivos() {
     try {
         if (selectedStudentIdForUpload && selectedFileType) {
             const partMail = selectedStudentIdForUpload.replace(/[^a-zA-Z0-9]/g, '_');
-            try {
+            
                 let response;
                 let blob;
                 let url;
@@ -402,25 +466,27 @@ function Archivos() {
                 switch (selectedFileType){
                 case 'fichas_inscripcion':
                     
-                    response = await axios.get(`${__url}/ficha/${selectedFileType}/${partMail}-Formulario_Inscripcion_Seminario_de_Titulo.docx`, 
-                        { responseType: "blob" }
-                    );
-                    blob = new Blob([response.data]);
-                    url = window.URL.createObjectURL(blob);
+                        response = await axios.get(`${__url}/ficha/${selectedFileType}/${partMail}-Formulario_Inscripcion_Seminario_de_Titulo.docx`, 
+                            { responseType: "blob" }
+                        );
+                        
+                        blob = new Blob([response.data]);
+                        url = window.URL.createObjectURL(blob);
 
-                    a = document.createElement("a");
-                    a.href = url;
-                    a.download = partMail + "-Formulario_Inscripcion_Seminario_de_Titulo.docx";
+                        a = document.createElement("a");
+                        a.href = url;
+                        a.download = partMail + "-Formulario_Inscripcion_Seminario_de_Titulo.docx";
 
-                    document.body.appendChild(a);
-                    a.click();
+                        document.body.appendChild(a);
+                        a.click();
 
-                    a.remove();
-                    window.URL.revokeObjectURL(url); // buena práctica
+                        a.remove();
+                        window.URL.revokeObjectURL(url); // buena práctica
+                    
                     break;
                 case "archivos_Tesis":
                     console.log('tesis')
-                    response = await axios.get(`${__url}/tesis/${selectedFileType}/${partMail}-documento_tesis.xlsx`, 
+                    response = await axios.get(`${__url}/tesis/${selectedStudentIdForUpload}`, 
                         { responseType: "blob" }
                     );
                     blob = new Blob([response.data]);
@@ -436,8 +502,8 @@ function Archivos() {
                     a.remove();
                     window.URL.revokeObjectURL(url); // buena práctica
                     break;
-                case "archivos_Guia":
-                    response = await axios.get(`${__url}/${selectedFileType}/${partMail}-documento_guia.docx`, 
+                case "archivos_guia":
+                    response = await axios.get(`${__url}/guia/${selectedFileType}/${partMail}-documento_guia.docx`, 
                         { responseType: "blob" }
                     );
                     blob = new Blob([response.data]);
@@ -445,7 +511,7 @@ function Archivos() {
 
                     a = document.createElement("a");
                     a.href = url;
-                    a.download = partMail + "-Formulario_Inscripcion_Seminario_de_Titulo.docx";
+                    a.download = partMail + "-documento_guia.docx";
 
                     document.body.appendChild(a);
                     a.click();
@@ -454,7 +520,7 @@ function Archivos() {
                     window.URL.revokeObjectURL(url); // buena práctica
                     break;
                 case "archivos_Informante":
-                    response = await axios.get(`${__url}/${selectedFileType}/${partMail}`, 
+                    response = await axios.get(`${__url}/informante/${selectedFileType}/${partMail}-documento_informante.xlsx`, 
                         { responseType: "blob" }
                     );
                     blob = new Blob([response.data]);
@@ -462,7 +528,7 @@ function Archivos() {
 
                     a = document.createElement("a");
                     a.href = url;
-                    a.download = partMail + "-Formulario_Inscripcion_Seminario_de_Titulo.docx";
+                    a.download = partMail + "-documento_informante.xlsx";
 
                     document.body.appendChild(a);
                     a.click();
@@ -479,13 +545,7 @@ function Archivos() {
                     title: `Archivo bajado correctamente`
                 })
 
-            } catch{
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error al subir el archivo',
-                    text: `No se pudo subir el archivo`,
-                });
-            }
+            
                         
             handleCloseDownloadModal();
         } else {
@@ -499,6 +559,7 @@ function Archivos() {
         "Hubo un error al descargar el archivo",
         "error"
         );
+        handleCloseDownloadModal();
     }
     };
     return (
@@ -635,7 +696,7 @@ function Archivos() {
                 }}
             >
                 <Box sx={{
-                    position: 'absolute' as 'absolute',
+                    position: 'absolute',
                     top: '50%',
                     left: '50%',
                     transform: 'translate(-50%, -50%)',
@@ -715,7 +776,7 @@ function Archivos() {
                 }}
             >
                 <Box sx={{
-                    position: 'absolute' as 'absolute',
+                    position: 'absolute',
                     top: '50%',
                     left: '50%',
                     transform: 'translate(-50%, -50%)',
@@ -745,7 +806,7 @@ function Archivos() {
                             <MenuItem value=""><em>Selecciona un tipo</em></MenuItem>
                             <MenuItem value="fichas_inscripcion">Ficha de Ingreso</MenuItem>
                             <MenuItem value="archivos_Tesis">Tesis</MenuItem>
-                            <MenuItem value="archivos_Guia">Rubrica Guía</MenuItem>
+                            <MenuItem value="archivos_guia">Rubrica Guía</MenuItem>
                             <MenuItem value="archivos_Informante">Rubrica Informante</MenuItem>
                         </Select>
                     </FormControl>

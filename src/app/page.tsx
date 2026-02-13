@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@auth0/nextjs-auth0";
 import { useAccessToken } from "./context/TokenContext";
-import handleLogin from "./components/handleLogin/page";
+import handleLogin from "./components/handleLogin/handleLogin";
 import carga from "./components/loading/page";
 import Login from "./(rutas)/login/page";
 

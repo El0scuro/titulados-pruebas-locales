@@ -5,7 +5,11 @@ import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.share
 
 export default async function handleLogin(token: string, router: AppRouterInstance) {
     
-    
+    interface ErrorResponse {
+      message: string;
+      user?: string;
+    }
+
     try {
       // Make an API call to validate the user's role, including the access token
       const response = await axios.get(`${__url}/user/validate`, {
@@ -20,10 +24,12 @@ export default async function handleLogin(token: string, router: AppRouterInstan
         router.push(`/${lista[i]}?rol=${lista[i]}&mail=${response.data?.mail}&sede=${response.data?.sede}`); // Redirect to rol dashboard
       }
       }
-    } catch (error:any) {
-      const rol = error.response.data?.user;
-      const codigo = error.response.status;
-      // Log any errors that occur during the login process
-      router.push(`/no_registrado?rol=${rol}&error=${codigo}`);
+    } catch (error: unknown) {
+        if (axios.isAxiosError<ErrorResponse>(error)) {
+          const rol = error.response?.data?.user;
+          const codigo = error.response?.status;
+          router.push(`/no_registrado?rol=${rol}&error=${codigo}`);
+        }
     }
+
   }
