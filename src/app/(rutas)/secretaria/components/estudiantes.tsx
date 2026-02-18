@@ -581,8 +581,7 @@ export function ChangePage({action: onClose, fila, estudiantes, ActionAction: Ac
     if(!fila){
         return;
     }
-    const nombre = fila.studentName.split("\n")[0] + " " + fila.studentName.split("\n")[1];
-    const mailEstudiante = estudiantes.find(est => (est.nombre + " " + est.segundoNombre + " " + est.apellido + " " + est.segundoApellido) === nombre)?.mail;
+    const mailEstudiante = estudiantes.find(est => (est.nombre + " " + est.segundoNombre + " " + est.apellido + " " + est.segundoApellido) === fila.studentName)?.mail;
     console.log(mailEstudiante)
     if(!mailEstudiante){
         return null;
@@ -783,12 +782,9 @@ export function ExamenPage({action: onClose, fila, estudiantes, ActionAction: Ac
     if(!fila){
         return;
     }
-    const nombre = fila.studentName.split("\n")[0] + " " + fila.studentName.split("\n")[1];
-    const rutEstu = estudiantes.find(est => (est.nombre + " " + est.segundoNombre + " " + est.apellido + " " + est.segundoApellido) === nombre)?.rut;
-    const estudiante = estudiantes.find(est => (est.nombre + " " + est.segundoNombre + " " + est.apellido + " " + est.segundoApellido) === nombre);
-    if(!nombre){
-        return;
-    }
+    
+    const rutEstu = estudiantes.find(est => (est.nombre + " " + est.segundoNombre + " " + est.apellido + " " + est.segundoApellido) === fila.studentName)?.rut;
+    const estudiante = estudiantes.find(est => (est.nombre + " " + est.segundoNombre + " " + est.apellido + " " + est.segundoApellido) === fila.studentName);
     if(!estudiante){
         return;
     }
@@ -837,7 +833,7 @@ export function ExamenPage({action: onClose, fila, estudiantes, ActionAction: Ac
             <Typography variant='h5' textAlign={'center'}>
                 Indique fecha y hora del examen del estudiante
                 <br/>
-                {nombre}
+                {fila.studentName}
             </Typography>
             <Box
             sx={{
